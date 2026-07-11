@@ -10,7 +10,7 @@ const envConfig = config[env];
 
 const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || envConfig.mongoUri;
+    const mongoUri = process.env.MONGODB_URI || envConfig.mongoUri;
     await mongoose.connect(mongoUri);
     console.log('MongoDB connected successfully');
   } catch (error) {
@@ -229,5 +229,5 @@ export {
   FacebookLeadForm,
   FacebookLead,
   Segment,
-  Plan, Template, Webhook, Subscription, PaymentHistory, AIModel, AgentTask, AutomationFlow, AutomationExecution, ChatAssignment, Contact, CustomField, Tag, Attachment, Campaign, UserSetting, EcommerceCatalog, EcommerceProduct, EcommerceOrder, EcommerceOrderStatusTemplate, LandingPage, ApiKey, Widget, ShortLink, ImportJob, ReplyMaterial, WorkingHours, Workspace, Sequence, SequenceStep, WabaConfiguration, Tax, GoogleAccount, GoogleCalendar, GoogleSheet, QuickReply, QuickReplyFavorite, KanbanFunnel , KanbanItem , connectDB
+  Plan, Template, Webhook, Subscription, PaymentHistory, AIModel, AgentTask, AutomationFlow, AutomationExecution, ChatAssignment, Contact, CustomField, Tag, Attachment, Campaign, UserSetting, EcommerceCatalog, EcommerceProduct, EcommerceOrder, EcommerceOrderStatusTemplate, LandingPage, ApiKey, Widget, ShortLink, ImportJob, ReplyMaterial, WorkingHours, Workspace, Sequence, SequenceStep, WabaConfiguration, Tax, GoogleAccount, GoogleCalendar, GoogleSheet, QuickReply, QuickReplyFavorite, KanbanFunnel, KanbanItem, connectDB
 };

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon server.js",
+    "dev": "nodemon --delay 500ms server.js",
+    "start": "node server.js",
     "migrate-whatsapp": "node utils/migrate-whatsapp-structure.js",
     "seed": "node seeder/index.js"
   },

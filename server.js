@@ -7,9 +7,9 @@ import Setting from './models/setting.model.js';
 import campaignScheduler from './utils/campaign-scheduler.js';
 import automatedResponseWorker from './utils/automated-response-worker.js';
 import { fixSettingsData } from './utils/fix-settings-data.js';
-import { setContactImportSocketIo } from './queues/contact-import-queue.js';
+// [REDIS DISABLED] import { setContactImportSocketIo } from './queues/contact-import-queue.js';
 import './utils/system-settings.js';
-import { getSequenceQueue } from './queues/sequence-queue.js';
+// [REDIS DISABLED] import { getSequenceQueue } from './queues/sequence-queue.js';
 import statusCronService from './cronjob/status.cronService.js';
 import trialPeriodCronService from './cronjob/trialPeriod.cronService.js';
 
@@ -63,7 +63,7 @@ const io = new Server(httpServer, {
 });
 
 app.set('io', io);
-setContactImportSocketIo(io);
+// [REDIS DISABLED] setContactImportSocketIo(io);
 
 import('./services/whatsapp/unified-whatsapp.service.js').then(module => {
   module.default.setIO(io);
@@ -110,7 +110,7 @@ io.on('connection', (socket) => {
       }, 60 * 60 * 1000);
       console.log('Appointment reminder service started (1h interval)');
 
-      getSequenceQueue().catch(err => console.error('Error starting sequence queue worker', err));
+      // [REDIS DISABLED] getSequenceQueue().catch(err => console.error('Error starting sequence queue worker', err));
     });
   } catch (err) {
     console.error('Error starting server:', err);
