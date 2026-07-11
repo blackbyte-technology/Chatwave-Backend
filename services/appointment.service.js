@@ -1,6 +1,11 @@
 import { AppointmentConfig, AppointmentBooking, GoogleCalendar, Contact, Template } from '../models/index.js';
 import { getCalendarClient, getSheetsClient, handleGoogleApiError } from '../utils/google-api-helper.js';
-import moment from 'moment';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore.js';
+
+dayjs.extend(customParseFormat);
+dayjs.extend(isSameOrBefore);
 
 class AppointmentService {
 
@@ -9,10 +14,10 @@ class AppointmentService {
     if (!config) throw new Error('Appointment configuration not found');
 
     const availableDates = [];
-    const startDate = moment().startOf('day');
-    const endDate = moment().add(Math.min(daysToLookAhead, config.max_advance_booking_days), 'days');
+    const startDate = dayjs().startOf('day');
+    const endDate = dayjs().add(Math.min(daysToLookAhead, config.max_advance_booking_days), 'day');
 
-    let currentDate = moment(startDate);
+    let currentDate = dayjs(startDate);
     while (currentDate.isSameOrBefore(endDate)) {
       const dateStr = currentDate.format('YYYY-MM-DD');
       const slots = await this.getAvailableSlots(configId, dateStr);
@@ -24,7 +29,7 @@ class AppointmentService {
           slots_count: slots.length
         });
       }
-      currentDate.add(1, 'day');
+      currentDate = currentDate.add(1, 'day');
     }
 
     return availableDates;
@@ -35,12 +40,12 @@ class AppointmentService {
     const config = await AppointmentConfig.findById(configId);
     if (!config) return [];
 
-    const dayName = moment(date).format('dddd').toLowerCase();
+    const dayName = dayjs(date).format('dddd').toLowerCase();
     const dayConfig = config.slots.find(s => s.day === dayName && s.is_enabled);
     if (!dayConfig) return [];
 
-    const startOfDay = moment(date).startOf('day').toDate();
-    const endOfDay = moment(date).endOf('day').toDate();
+    const startOfDay = dayjs(date).startOf('day').toDate();
+    const endOfDay = dayjs(date).endOf('day').toDate();
     const existingBookings = await AppointmentBooking.find({
       config_id: configId,
       start_time: { $gte: startOfDay, $lte: endOfDay },
@@ -74,21 +79,21 @@ class AppointmentService {
     const breakTime = config.break_between_appointments_minutes;
 
     for (const interval of dayConfig.intervals) {
-      let currentSlotStart = moment(`${date} ${interval.from}`, 'YYYY-MM-DD HH:mm');
-      const intervalEnd = moment(`${date} ${interval.to}`, 'YYYY-MM-DD HH:mm');
+      let currentSlotStart = dayjs(`${date} ${interval.from}`, 'YYYY-MM-DD HH:mm');
+      const intervalEnd = dayjs(`${date} ${interval.to}`, 'YYYY-MM-DD HH:mm');
 
-      while (currentSlotStart.clone().add(duration, 'minutes').isSameOrBefore(intervalEnd)) {
-        const slotEnd = currentSlotStart.clone().add(duration, 'minutes');
+      while (currentSlotStart.add(duration, 'minute').isSameOrBefore(intervalEnd)) {
+        const slotEnd = currentSlotStart.add(duration, 'minute');
 
         const isBusyInDB = existingBookings.some(b =>
-          moment(b.start_time).isBefore(slotEnd) && moment(b.end_time).isAfter(currentSlotStart)
+          dayjs(b.start_time).isBefore(slotEnd) && dayjs(b.end_time).isAfter(currentSlotStart)
         );
 
         const isBusyInGoogle = googleBusyTimes.some(b =>
-          moment(b.start).isBefore(slotEnd) && moment(b.end).isAfter(currentSlotStart)
+          dayjs(b.start).isBefore(slotEnd) && dayjs(b.end).isAfter(currentSlotStart)
         );
 
-        const isPast = currentSlotStart.isBefore(moment());
+        const isPast = currentSlotStart.isBefore(dayjs());
 
         if (!isBusyInDB && !isBusyInGoogle && !isPast) {
           availableSlots.push({
@@ -99,7 +104,7 @@ class AppointmentService {
           });
         }
 
-        currentSlotStart.add(duration + breakTime, 'minutes');
+        currentSlotStart = currentSlotStart.add(duration + breakTime, 'minute');
       }
     }
 
@@ -166,7 +171,7 @@ class AppointmentService {
       try {
         const sheets = await getSheetsClient(config.google_account_id);
         const rowData = [
-          moment(startTime).format('YYYY-MM-DD HH:mm'),
+          dayjs(startTime).format('YYYY-MM-DD HH:mm'),
           answers.name || '',
           answers.phone || '',
           config.name,
@@ -293,10 +298,8 @@ class AppointmentService {
     const booking = await AppointmentBooking.findById(bookingId);
     if (!booking) throw new Error('Booking not found');
 
-    const { default: moment } = await import('moment');
-
-    const sTime = moment(newStartTime, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD h:mm A', moment.ISO_8601]).toDate();
-    const eTime = moment(newEndTime,  ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD h:mm A', moment.ISO_8601]).toDate();
+    const sTime = dayjs(newStartTime, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD h:mm A']).toDate();
+    const eTime = dayjs(newEndTime,  ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD h:mm A']).toDate();
 
     if (isNaN(sTime) || isNaN(eTime)) {
        throw new Error(`Invalid Date Format. Please provide YYYY-MM-DD HH:mm. Received: ${newStartTime}`);
@@ -375,11 +378,11 @@ class AppointmentService {
           value = contact.name || 'Guest';
         } else if (source === 'appointment_time') {
           const fmt = 'MMM D, YYYY [at] h:mm A';
-          value = moment(booking.start_time).format(fmt);
+          value = dayjs(booking.start_time).format(fmt);
         } else if (source === 'appointment_date') {
-          value = moment(booking.start_time).format('MMM D, YYYY');
+          value = dayjs(booking.start_time).format('MMM D, YYYY');
         } else if (source === 'appointment_hour') {
-          value = moment(booking.start_time).format('h:mm A');
+          value = dayjs(booking.start_time).format('h:mm A');
         } else if (source === 'meet_link') {
           value = booking.google_meet_link || 'N/A';
         } else if (source === 'location') {
@@ -407,7 +410,7 @@ class AppointmentService {
 
       if (Object.keys(variables).length === 0) {
         variables["1"] = contact.name || 'Guest';
-        variables["2"] = moment(booking.start_time).format('MMM D, YYYY h:mm A');
+        variables["2"] = dayjs(booking.start_time).format('MMM D, YYYY h:mm A');
         variables["3"] = booking.google_meet_link || 'N/A';
       }
 
@@ -453,8 +456,8 @@ class AppointmentService {
 
       for (const config of configs) {
         const reminderHours = config.reminder_hours || 24;
-        const reminderTimeStart = moment().add(reminderHours, 'hours');
-        const reminderTimeEnd = moment().add(reminderHours, 'hours').add(1, 'hour');
+        const reminderTimeStart = dayjs().add(reminderHours, 'hour');
+        const reminderTimeEnd = dayjs().add(reminderHours, 'hour').add(1, 'hour');
 
         const upcomingBookings = await AppointmentBooking.find({
           config_id: config._id,
@@ -544,7 +547,7 @@ class AppointmentService {
 
     const rows = availableDates.slice(0, 10).map(d => ({
       id: `date_${d.date}`,
-      title: moment(d.date).format('ddd, MMM D'),
+      title: dayjs(d.date).format('ddd, MMM D'),
       description: `Slots: ${d.slot_count}`
     }));
 
@@ -597,8 +600,8 @@ class AppointmentService {
 
     const rows = slots.slice(0, 10).map(s => ({
       id: `slot_${s.start}`,
-      title: moment(s.start).format('h:mm A'),
-      description: `Ends at ${moment(s.end).format('h:mm A')}`
+      title: dayjs(s.start).format('h:mm A'),
+      description: `Ends at ${dayjs(s.end).format('h:mm A')}`
     }));
 
     const contact = await Contact.findById(contactId);
@@ -618,7 +621,7 @@ class AppointmentService {
       recipientNumber: contact.phone_number,
       messageType: 'interactive',
       interactiveType: 'list',
-      messageText: `Please choose your preferred time for ${moment(date).format('dddd, MMM D, YYYY')}:`,
+      messageText: `Please choose your preferred time for ${dayjs(date).format('dddd, MMM D, YYYY')}:`,
       listParams: {
         header: 'Select Appointment Time',
         buttonTitle: 'Available Times',

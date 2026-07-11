@@ -180,8 +180,8 @@ class PaymentLinkService {
         else if (source === 'payment_link') value = paymentLink;
         else if (source === 'amount') value = `${currency} ${amountDisplay}`;
         else if (source === 'appointment_time' && booking.start_time) {
-          const { default: moment } = await import('moment');
-          value = moment(booking.start_time).format('MMM D, YYYY [at] h:mm A');
+          const { default: dayjs } = await import('dayjs');
+          value = dayjs(booking.start_time).format('MMM D, YYYY [at] h:mm A');
         }
         variables[key] = value;
       }
