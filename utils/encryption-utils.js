@@ -2,7 +2,11 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
-const KEY = process.env.ENCRYPTION_KEY || 'v8y/A?D(G+KbPeShVmYq3t6w9z$C&E)H'; 
+
+if (!process.env.ENCRYPTION_KEY) {
+  throw new Error('FATAL: ENCRYPTION_KEY is not set in environment variables.');
+}
+const KEY = process.env.ENCRYPTION_KEY;
 
 
 export const encrypt = (text) => {

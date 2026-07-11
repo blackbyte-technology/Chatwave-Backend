@@ -29,8 +29,12 @@ export async function updateEnvFile(vars) {
     const value = vars[key];
     if (value == null || value === '') continue;
 
+    // Sanitize: strip newlines to prevent .env injection
+    const sanitizedValue = String(value).replace(/[\r\n]/g, '').trim();
+    if (!sanitizedValue) continue;
+
     const lineMatch = new RegExp(`^(${key}\\s*=\\s*).*`);
-    const newLine = `${key}=${value}`;
+    const newLine = `${key}=${sanitizedValue}`;
     let found = false;
 
     for (let i = 0; i < lines.length; i++) {

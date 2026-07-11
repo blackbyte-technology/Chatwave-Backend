@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { handleWebhookVerification } from "./controllers/whatsapp-webhook.controller.js";
 import { handleIncomingMessage as handleIncomingMessageOriginal, handleStatusUpdate as handleStatusUpdateOriginal } from "./controllers/whatsapp-webhook.controller.js";
 import { denyMutationInDemo } from "./middlewares/demo-mode.js";
@@ -13,14 +15,22 @@ app.set("trust proxy", true);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false,
+}));
 
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS : [];
+      // Allow server-to-server requests (no origin header)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
+      const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+        : [];
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("CORS blocked: " + origin));
@@ -63,7 +73,6 @@ app.use("/webhook/facebook/leadgen", facebookLeadRoutes);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use('/install', express.static(path.join(__dirname, 'public/install')));
 
 // ═══════════════════════════════════════════════
 // SWAGGER API DOCUMENTATION
@@ -174,7 +183,7 @@ app.get("/", (req, res) => {
 
 app.get("/api/is-demo-mode", async (req, res) => {
   try {
-    const setting = await Setting.findOne({}).select("is_demo_mode demo_user_email demo_user_password demo_agent_email logo_light_url logo_dark_url favicon_url demo_agent_password -_id").lean();
+    const setting = await Setting.findOne({}).select("is_demo_mode logo_light_url logo_dark_url favicon_url -_id").lean();
 
     const is_demo_mode = setting?.is_demo_mode ?? false;
 
@@ -184,14 +193,6 @@ app.get("/api/is-demo-mode", async (req, res) => {
       logo_light_url: setting?.logo_light_url,
       logo_dark_url: setting?.logo_dark_url,
       favicon_url: setting?.favicon_url,
-      ...(is_demo_mode
-        ? {
-          demo_user_email: setting?.demo_user_email,
-          demo_user_password: setting?.demo_user_password,
-          demo_agent_email: setting?.demo_agent_email,
-          demo_agent_password: setting?.demo_agent_password,
-        }
-        : {}),
     });
   } catch (error) {
     console.error("Error fetching demo mode setting:", error);
