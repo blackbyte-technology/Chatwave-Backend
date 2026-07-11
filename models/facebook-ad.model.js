@@ -91,6 +91,5 @@ const facebookAdSchema = new mongoose.Schema(
 );
 
 facebookAdSchema.index({ user_id: 1, deleted_at: 1 });
-facebookAdSchema.index({ fb_ad_id: 1 });
 
 export default mongoose.model('FacebookAd', facebookAdSchema);

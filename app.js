@@ -80,6 +80,28 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use('/install', express.static(path.join(__dirname, 'public/install')));
 
+// ═══════════════════════════════════════════════
+// SWAGGER API DOCUMENTATION
+// ═══════════════════════════════════════════════
+import swaggerUi from 'swagger-ui-express';
+import fs from 'fs';
+const swaggerFilePath = path.join(__dirname, 'swagger.json');
+if (fs.existsSync(swaggerFilePath)) {
+  const swaggerDocument = JSON.parse(fs.readFileSync(swaggerFilePath, 'utf8'));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'ChatWave API Documentation',
+    customfavIcon: '/favicon.ico',
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      tagsSorterAlpha: true,
+    }
+  }));
+  console.log('📄 Swagger API Docs available at: /api-docs');
+}
+
 app.use('/api', denyMutationInDemo);
 
 // import { initializeInstaller, createInstallationMiddleware } from './lib/install.js';
