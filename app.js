@@ -4,10 +4,7 @@ import path from "path";
 import { handleWebhookVerification } from "./controllers/whatsapp-webhook.controller.js";
 import { handleIncomingMessage as handleIncomingMessageOriginal, handleStatusUpdate as handleStatusUpdateOriginal } from "./controllers/whatsapp-webhook.controller.js";
 import { denyMutationInDemo } from "./middlewares/demo-mode.js";
-import { rtInit } from "./node/src/middlewares/runtime-init.js";
-import session from 'express-session';
 import { fileURLToPath } from 'url';
-import ejsMate from 'ejs-mate';
 import { checkPlanLimit } from "./middlewares/plan-permission.js";
 
 
@@ -16,19 +13,7 @@ app.set("trust proxy", true);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.engine('ejs', ejsMate);
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'node/views'));
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'whatsdesk-install-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: true,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000
-  }
-}));
 
 app.use(
   cors({
@@ -66,7 +51,7 @@ const captureRawBody = (req, res, next) => {
 };
 
 app.use(captureRawBody);
-// app.use(rtInit);
+
 
 import { handleStripeWebhook, handleRazorpayWebhook, handlePayPalWebhook } from "./controllers/webhook.controller.js";
 app.post("/api/webhook/stripe", handleStripeWebhook);
@@ -104,11 +89,7 @@ if (fs.existsSync(swaggerFilePath)) {
 
 app.use('/api', denyMutationInDemo);
 
-// import { initializeInstaller, createInstallationMiddleware } from './lib/install.js';
 
-// await initializeInstaller(app);
-
-// app.use(createInstallationMiddleware());
 
 import webhookRoutes from "./routes/webhook.routes.js";
 app.use("/api/webhook", webhookRoutes);
