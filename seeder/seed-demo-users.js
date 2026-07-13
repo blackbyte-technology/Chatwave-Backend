@@ -34,12 +34,13 @@ async function createDemoUser() {
       email: demoUserEmail,
       password: hashedPassword,
       role_id: userRole._id,
+      role_key: userRole.name,
       email_verified: true
     });
     console.log('Demo User created! (user@chatwave.com / User@123)');
   } else {
-    // Update to ensure email_verified is true
-    await User.updateOne({ _id: existingUser._id }, { email_verified: true });
+    // Update to ensure email_verified is true and role is set
+    await User.updateOne({ _id: existingUser._id }, { email_verified: true, role_id: userRole._id, role_key: userRole.name });
     console.log('Demo User already exists, ensured email_verified=true');
   }
 
@@ -54,11 +55,12 @@ async function createDemoUser() {
         email: demoAgentEmail,
         password: hashedPassword,
         role_id: agentRole._id,
+        role_key: agentRole.name,
         email_verified: true
       });
       console.log('Demo Agent created! (agent@chatwave.com / Agent@123)');
     } else {
-      await User.updateOne({ _id: existingAgent._id }, { email_verified: true });
+      await User.updateOne({ _id: existingAgent._id }, { email_verified: true, role_id: agentRole._id, role_key: agentRole.name });
       console.log('Demo Agent already exists, ensured email_verified=true');
     }
   }
