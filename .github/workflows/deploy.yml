@@ -1,0 +1,62 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Upload code to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".,!node_modules,!.git,!.env,!uploads/*,!storage/*"
+          target: /tmp/chatwave-backend-deploy
+          overwrite: true
+
+      - name: Deploy & Restart
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            echo ">>> Syncing backend files..."
+            rsync -av --delete \
+              --exclude='node_modules' \
+              --exclude='.env' \
+              --exclude='uploads' \
+              --exclude='storage' \
+              /tmp/chatwave-backend-deploy/ /home/ubuntu/chatwave/backend/
+
+            rm -rf /tmp/chatwave-backend-deploy
+
+            echo ">>> Installing dependencies..."
+            cd /home/ubuntu/chatwave/backend
+            npm ci --omit=dev
+
+            echo ">>> Restarting backend..."
+            pm2 restart chatwave-backend --update-env
+            pm2 save
+
+            echo ">>> Health check..."
+            sleep 5
+            RESPONSE=$(curl -sf http://localhost:5000 || echo "FAIL")
+            if echo "$RESPONSE" | grep -q "running successfully"; then
+              echo "✅ Backend deployed successfully!"
+            else
+              echo "❌ Health check failed!"
+              pm2 logs chatwave-backend --lines 20 --nostream
+              exit 1
+            fi
