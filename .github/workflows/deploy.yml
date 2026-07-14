@@ -47,11 +47,11 @@ jobs:
             npm ci --omit=dev
 
             echo ">>> Restarting backend..."
-            pm2 restart chatwave-backend --update-env
+            pm2 reload chatwave-backend --update-env
             pm2 save
 
             echo ">>> Health check..."
-            sleep 5
+            sleep 10
             RESPONSE=$(curl -sf http://localhost:5000 || echo "FAIL")
             if echo "$RESPONSE" | grep -q "running successfully"; then
               echo "✅ Backend deployed successfully!"
