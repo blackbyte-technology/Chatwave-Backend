@@ -7,18 +7,17 @@ const env = process.env.NODE_ENV || 'development';
 const envConfig = config[env];
 const mongoUri = process.env.MONGODB_URI || envConfig.mongoUri;
 
-async function createDemoUser() {
-  await mongoose.connect(mongoUri);
-  console.log('Connected to MongoDB');
-
+export default async function createDemoUser() {
+  console.log('Starting demo users seeder...');
+  
   const User = (await import('../models/user.model.js')).default;
   const Role = (await import('../models/role.model.js')).default;
 
   // Get the "user" role
   const userRole = await Role.findOne({ name: 'user' });
   if (!userRole) {
-    console.error('Role "user" not found! Run npm run seed first.');
-    process.exit(1);
+    console.warn('Role "user" not found! Run seedDefaultRoles first.');
+    return;
   }
 
   // Get the "agent" role
@@ -70,11 +69,5 @@ async function createDemoUser() {
   await User.updateOne({ email: adminEmail, deleted_at: null }, { email_verified: true });
   console.log(`Admin (${adminEmail}) email_verified set to true`);
 
-  await mongoose.disconnect();
-  console.log('Done!');
+  console.log('Done with demo users!');
 }
-
-createDemoUser().catch(err => {
-  console.error('Error:', err);
-  process.exit(1);
-});

@@ -6,9 +6,8 @@ const env = process.env.NODE_ENV || 'development';
 const envConfig = config[env];
 const mongoUri = process.env.MONGODB_URI || envConfig.mongoUri;
 
-async function seedUnlimitedPlan() {
-  await mongoose.connect(mongoUri);
-  console.log('Connected to MongoDB');
+export default async function seedUnlimitedPlan() {
+  console.log('Starting seedUnlimitedPlan...');
 
   const Plan = (await import('../models/plan.model.js')).default;
   const Subscription = (await import('../models/subscription.model.js')).default;
@@ -21,8 +20,8 @@ async function seedUnlimitedPlan() {
     currency = await Currency.findOne({ deleted_at: null });
   }
   if (!currency) {
-    console.error('No currency found! Run npm run seed first.');
-    process.exit(1);
+    console.error('No currency found! Run seedCurrency first.');
+    return;
   }
   console.log(`Using currency: ${currency.name} (${currency.code})`);
 
@@ -74,8 +73,8 @@ async function seedUnlimitedPlan() {
   // Find demo user
   const demoUser = await User.findOne({ email: 'user@chatwave.com', deleted_at: null });
   if (!demoUser) {
-    console.error('Demo user (user@chatwave.com) not found! Run seed-demo-users.js first.');
-    process.exit(1);
+    console.warn('Demo user (user@chatwave.com) not found! Run seed-demo-users.js first.');
+    return;
   }
 
   // Create/update subscription for demo user
@@ -102,11 +101,5 @@ async function seedUnlimitedPlan() {
   );
   console.log(`Unlimited subscription assigned to user@chatwave.com (expires: 2099-12-31)`);
 
-  await mongoose.disconnect();
-  console.log('Done!');
+  console.log('Done with unlimited plan!');
 }
-
-seedUnlimitedPlan().catch(err => {
-  console.error('Error:', err);
-  process.exit(1);
-});

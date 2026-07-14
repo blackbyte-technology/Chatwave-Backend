@@ -7,18 +7,16 @@ import Currency from '../models/currency.model.js';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-async function seedPlanAndAssign() {
+export default async function seedPlanAndAssign() {
+  console.log('Starting seedPlanAndAssign...');
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB');
-
     // 1. Get INR currency
     let currency = await Currency.findOne({ code: 'INR' });
     if (!currency) {
       currency = await Currency.findOne({});
       if (!currency) {
-        console.error('No currency found! Run npm run seed first.');
-        process.exit(1);
+        console.error('No currency found! Run seedCurrency first.');
+        return;
       }
     }
     console.log(`Using currency: ${currency.code} (${currency._id})`);
@@ -72,8 +70,8 @@ async function seedPlanAndAssign() {
     // 3. Find demo user
     const demoUser = await User.findOne({ email: 'user@chatwave.com', deleted_at: null });
     if (!demoUser) {
-      console.error('❌ Demo user (user@chatwave.com) not found! Run seed-demo-users.js first.');
-      process.exit(1);
+      console.warn('❌ Demo user (user@chatwave.com) not found! Run seed-demo-users.js first.');
+      return;
     }
     console.log(`Found user: ${demoUser.name} (${demoUser.email})`);
 
@@ -161,11 +159,7 @@ async function seedPlanAndAssign() {
     }
 
     console.log('\n🎉 Done! Plan created and assigned to demo users.');
-    process.exit(0);
   } catch (error) {
     console.error('Error:', error.message);
-    process.exit(1);
   }
 }
-
-seedPlanAndAssign();

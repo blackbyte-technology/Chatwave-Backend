@@ -9,6 +9,9 @@ import seedCurrency from './seedCurrency.js';
 import seedAdminTemplates from './seedAdminTemplates.js';
 import seedAIModels from './seedAIModels.js';
 import seedLanguage from './seedLanguage.js';
+import createDemoUser from './seed-demo-users.js';
+import seedPlanAndAssign from './seed-plan.js';
+import seedUnlimitedPlan from './seed-unlimited-plan.js';
 import { connectDB } from '../models/index.js';
 
 
@@ -24,6 +27,9 @@ export const seedAll = async () => {
         await seedDefaultRoles();
         await seedDefaultPermissions();
         await createDefaultAdmin();
+        await createDemoUser();
+        await seedPlanAndAssign();
+        await seedUnlimitedPlan();
         await seedPages();
         await seedAdminTemplates();
         await seedAIModels();
