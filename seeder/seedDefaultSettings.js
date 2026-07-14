@@ -61,7 +61,7 @@ async function seedDefaultSettings() {
       configuration_id: null,
       max_groups_per_user: 500,
       max_group_members: 1024,
-      whatsapp_webhook_url: `/whatsapp/webhook`,
+      whatsapp_webhook_url: `https://api.chatwave.in/webhook/whatsapp`,
       webhook_verification_token: process.env.WHATSAPP_VERIFY_TOKEN || null,
       free_trial_enabled: false,
       free_trial_days: 7,
