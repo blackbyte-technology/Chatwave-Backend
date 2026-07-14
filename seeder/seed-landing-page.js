@@ -179,19 +179,19 @@ const seedLandingPage = async () => {
         subtitle: "We're Here To Assist You",
         form_enabled: true,
         phone_no: "+91 9879878789",
-        email: "wapi@support.com"
+        email: "chatwave@support.com"
       },
       footer_section: {
         cta_title: "Launch Smarter WhatsApp Campaigns Today",
         cta_description: "Launch campaigns, automate conversations, and engage customers smarter — all from one powerful WhatsApp platform.",
         cta_buttons: [{ text: "Start Free Trial", link: "/signup" }],
         social_links: [{
-          twitter: "https://twitter.com/wapi",
-          linkedin: "https://linkedin.com/company/wapi",
-          facebook: "https://facebook.com/wapi",
-          instagram: "https://instagram.com/wapi"
+          twitter: "https://twitter.com/chatwave",
+          linkedin: "https://linkedin.com/company/chatwave",
+          facebook: "https://facebook.com/chatwave",
+          instagram: "https://instagram.com/chatwave"
         }],
-        copy_rights_text: "© 2026 WAPI. All rights reserved."
+        copy_rights_text: "© 2026 CHATWAVE. All rights reserved."
       }
     });
 

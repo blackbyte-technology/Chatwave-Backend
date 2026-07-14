@@ -1,5 +1,5 @@
 {
-  "common_app_name": "Wapi",
+  "common_app_name": "ChatWave",
   "common_app_description": "WhatsApp Business-Lösung",
   "common_title": "Titel",
   "common_description": "Beschreibung",
@@ -79,8 +79,8 @@
   "common_no_keep_it": "Nein, behalten",
   "auth_login": "Anmelden",
   "auth_logout": "Abmelden",
-  "auth_welcome": "Willkommen bei Wapi",
-  "auth_welcome_message": "Willkommen im Wapi Admin-Portal",
+  "auth_welcome": "Willkommen bei ChatWave",
+  "auth_welcome_message": "Willkommen im ChatWave Admin-Portal",
   "auth_admin_portal": "Admin-Portal",
   "auth_enter_credentials": "Geben Sie Ihre Anmeldedaten ein, um auf das Dashboard zuzugreifen",
   "auth_email": "E-Mail",

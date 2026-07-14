@@ -279,7 +279,7 @@ async function seedAdminTemplates() {
         message_body: 'Flash Sale! Get 50% off on all items. Offer valid for the next 24 hours only!',
         buttons: [
           { type: 'copy_code', text: 'Code4' },
-          { type: 'url', text: 'Shop Now', url: 'https://wapi-front-red.vercel.app' }
+          { type: 'url', text: 'Shop Now', url: 'https://chatwave-front-red.vercel.app' }
         ],
         status: 'approved',
         is_admin_template: true,
@@ -326,7 +326,7 @@ async function seedAdminTemplates() {
         footer_text: 'Limited stock available.',
         buttons: [
           { type: 'copy_code', text: 'Copy Code' },
-          { type: 'url', text: 'Shop Now', url: 'https://wapi-front-red.vercel.app' }
+          { type: 'url', text: 'Shop Now', url: 'https://chatwave-front-red.vercel.app' }
         ],
         status: 'approved',
         is_admin_template: true,
@@ -478,7 +478,7 @@ async function seedAdminTemplates() {
         header: { format: 'text', text: 'Welcome Aboard!' },
         message_body: 'Welcome to {{1}}! We are thrilled to have you with us. Explore our services',
         body_variables: [
-          { key: '1', example: 'Wapi' }
+          { key: '1', example: 'ChatWave' }
         ],
         footer_text: 'Excited to start this journey.',
         status: 'approved',

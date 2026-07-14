@@ -54,13 +54,13 @@ export const generateInvoicePDF = async (paymentHistory, user, plan) => {
                doc.fillColor(primaryColor)
                   .font('Helvetica-Bold')
                   .fontSize(24)
-                  .text(settings?.app_name || 'Wapi', 50, 40);
+                  .text(settings?.app_name || 'ChatWave', 50, 40);
             }
          } else {
             doc.fillColor(primaryColor)
                .font('Helvetica-Bold')
                .fontSize(24)
-               .text(settings?.app_name || 'Wapi', 50, 40);
+               .text(settings?.app_name || 'ChatWave', 50, 40);
          }
 
          doc.fillColor(secondaryColor)
@@ -109,7 +109,7 @@ export const generateInvoicePDF = async (paymentHistory, user, plan) => {
          doc.fillColor(textColor)
             .font('Helvetica')
             .fontSize(10)
-            .text(settings?.app_name || 'Wapi Service', 310, sectionTop + 30)
+            .text(settings?.app_name || 'ChatWave Service', 310, sectionTop + 30)
             .fillColor(mutedTextColor)
             .text(settings?.app_email || '', 310, sectionTop + 45);
 
@@ -210,7 +210,7 @@ export const generateInvoicePDF = async (paymentHistory, user, plan) => {
             .font('Helvetica')
             .fontSize(9)
             .text(
-               'Thank you for choosing Wapi for your WhatsApp marketing needs!',
+               'Thank you for choosing ChatWave for your WhatsApp marketing needs!',
                50,
                footerY,
                { align: 'center', width: 500 }

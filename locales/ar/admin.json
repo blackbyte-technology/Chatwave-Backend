@@ -1,5 +1,5 @@
 {
-  "common_app_name": "Wapi",
+  "common_app_name": "ChatWave",
   "common_app_description": "حل واتساب للأعمال",
   "common_title": "العنوان",
   "common_description": "الوصف",
@@ -79,8 +79,8 @@
   "common_no_keep_it": "لا، احتفظ بها",
   "auth_login": "تسجيل الدخول",
   "auth_logout": "تسجيل الخروج",
-  "auth_welcome": "مرحباً بك في Wapi",
-  "auth_welcome_message": "مرحباً بك في بوابة إدارة Wapi",
+  "auth_welcome": "مرحباً بك في ChatWave",
+  "auth_welcome_message": "مرحباً بك في بوابة إدارة ChatWave",
   "auth_admin_portal": "بوابة المدير",
   "auth_enter_credentials": "أدخل بيانات الاعتماد الخاصة بك للوصول إلى لوحة التحكم",
   "auth_email": "البريد الإلكتروني",
