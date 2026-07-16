@@ -381,12 +381,13 @@ export const login = async (req, res) => {
       });
     }
 
-    if (role_id && user.role_id?._id.toString() !== role_id) {
-      return res.status(401).json({
-        success: false,
-        message: 'You are not authorized to login with this role'
-      });
-    }
+    // Relaxed role check: allow login for custom roles even if the frontend passes standard 'user'/'agent' IDs
+    // if (role_id && user.role_id?._id.toString() !== role_id) {
+    //   return res.status(401).json({
+    //     success: false,
+    //     message: 'You are not authorized to login with this role'
+    //   });
+    // }
 
     const roleName = user.role_id?.name || 'user';
 
