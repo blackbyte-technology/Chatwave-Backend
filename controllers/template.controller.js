@@ -566,11 +566,12 @@ export const buildMetaTemplatePayload = (template) => {
 
   const bodyVariables = template.body_variables || [];
   let bodyText = template.message_body || "";
+  // Meta rule: variables cannot be at the very start or end of the body text
   if (/^{{\d+}}/.test(bodyText.trim())) {
     bodyText = "Hello " + bodyText.trim();
   }
   if (/{{\d+}}[\s.!?,]*$/.test(bodyText.trim())) {
-    bodyText = bodyText.trim() + " from InsuranceDesk.";
+    bodyText = bodyText.trim() + ' - Thank you.';
   }
   const bodyComponent = {
     type: "BODY",
