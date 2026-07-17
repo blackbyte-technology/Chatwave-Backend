@@ -244,31 +244,34 @@ export const register = async (req, res) => {
       role_id: role._id,
       password: hashedPassword,
       storage_limit: globalStorageLimitMB,
-      is_verified: false,
-      phone_verified: false
+      //   is_verified: false,
+      //   phone_verified: false
+      // });
+
+      // const otp = OTPService.generateOTP();
+      // const hashedOTP = await OTPService.hashOTP(otp);
+      // const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      // await OTPLog.create({
+      //   user_id: newUser._id,
+      //   email: normalizedEmail,
+      //   otp: hashedOTP,
+      //   channel: 'whatsapp',
+      //   whatsapp_count: 1,
+      //   expires_at: expiresAt,
+      //   last_sent_at: new Date()
+      // });
+
+      // const whatsappResult = await OTPService.sendWhatsAppOTP(countryCode, phone, otp);
+      // if (!whatsappResult) {
+      //   return res.status(500).json({
+      //     success: false,
+      //     message: 'Failed to send WhatsApp OTP. Please try again later.'
+      //   });
+      // }
+      is_verified: true,
+      phone_verified: true
     });
-
-    const otp = OTPService.generateOTP();
-    const hashedOTP = await OTPService.hashOTP(otp);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    await OTPLog.create({
-      user_id: newUser._id,
-      email: normalizedEmail,
-      otp: hashedOTP,
-      channel: 'whatsapp',
-      whatsapp_count: 1,
-      expires_at: expiresAt,
-      last_sent_at: new Date()
-    });
-
-    const whatsappResult = await OTPService.sendWhatsAppOTP(countryCode, phone, otp);
-    if (!whatsappResult) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send WhatsApp OTP. Please try again later.'
-      });
-    }
 
     try {
       const user = await User.findById(newUser._id).populate('role_id');
@@ -309,7 +312,7 @@ export const register = async (req, res) => {
       success: true,
       message: `${role.name} registered successfully`,
       data: {
-        redirect: '/verify-signup-otp',
+        redirect: '/login',
         user_id: newUser._id,
         identifier: normalizedEmail
       }
