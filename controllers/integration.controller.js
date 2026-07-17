@@ -1,29 +1,45 @@
-import { WhatsappWaba, WhatsappConnection, Template, Message, Workspace } from '../models/index.js';
+import { WhatsappWaba, WhatsappConnection, Template, Message, Workspace, WhatsappPhoneNumber } from '../models/index.js';
 import UnifiedWhatsAppService from '../services/whatsapp/unified-whatsapp.service.js';
 import { provisionTemplatesForWorkspace } from '../services/template-provisioner.service.js';
+
+// Helper to resolve active WABA for workspace/user
+const getActiveWaba = async (workspaceId, userId) => {
+  let waba = await WhatsappWaba.findOne({ workspace_id: workspaceId, deleted_at: null });
+  if (!waba) {
+    waba = await WhatsappWaba.findOne({ user_id: userId, is_active: true, deleted_at: null });
+    if (waba && !waba.workspace_id) {
+      waba.workspace_id = workspaceId;
+      await waba.save();
+    }
+  }
+  return waba;
+};
 
 // GET /api/integration/verify
 export const verifyIntegration = async (req, res) => {
   try {
     const user = req.user; // populated via API key auth
     
-    // Find the first workspace (or default)
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) {
       return res.status(404).json({ success: false, message: 'Workspace not found' });
     }
 
-    const waba = await WhatsappWaba.findOne({ workspace_id: workspace._id, deleted_at: null });
-    const connection = await WhatsappConnection.findOne({ workspace_id: workspace._id, deleted_at: null });
+    const waba = await getActiveWaba(workspace._id, user.id);
+    const connection = waba ? (await WhatsappConnection.findOne({ whatsapp_business_account_id: waba.whatsapp_business_account_id, deleted_at: null }) || await WhatsappConnection.findOne({ user_id: user.id, is_active: true, deleted_at: null })) : null;
+
+    const isConnected = !!(waba && waba.whatsapp_business_account_id && (waba.access_token || connection?.access_token));
+    const phoneDoc = waba ? await WhatsappPhoneNumber.findOne({ waba_id: waba._id, deleted_at: null }) : null;
+    const phone = phoneDoc?.display_phone_number || connection?.registred_phone_number || connection?.phone_number || null;
 
     return res.json({
       success: true,
       data: {
         workspace_id: workspace._id,
         workspace_name: workspace.name,
-        whatsapp_status: (waba && connection) ? 'connected' : 'not_setup',
-        connected_phone: connection ? connection.phone_number : null,
-        waba_id: waba ? waba.waba_id : null
+        whatsapp_status: isConnected ? 'connected' : 'not_setup',
+        connected_phone: phone,
+        waba_id: waba ? (waba.whatsapp_business_account_id || waba._id.toString()) : null
       }
     });
   } catch (error) {
@@ -39,19 +55,24 @@ export const getWhatsAppStatus = async (req, res) => {
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) return res.status(404).json({ success: false, message: 'Workspace not found' });
 
-    const waba = await WhatsappWaba.findOne({ workspace_id: workspace._id, deleted_at: null });
-    const connection = await WhatsappConnection.findOne({ workspace_id: workspace._id, deleted_at: null });
+    const waba = await getActiveWaba(workspace._id, user.id);
+    const connection = waba ? (await WhatsappConnection.findOne({ whatsapp_business_account_id: waba.whatsapp_business_account_id, deleted_at: null }) || await WhatsappConnection.findOne({ user_id: user.id, is_active: true, deleted_at: null })) : null;
+
+    const isConnected = !!(waba && waba.whatsapp_business_account_id && (waba.access_token || connection?.access_token));
+    const phoneDoc = waba ? await WhatsappPhoneNumber.findOne({ waba_id: waba._id, deleted_at: null }) : null;
+    const phone = phoneDoc?.display_phone_number || connection?.registred_phone_number || connection?.phone_number || null;
 
     return res.json({
       success: true,
       data: {
-        status: (waba && connection) ? 'connected' : 'disconnected',
-        phone_number: connection ? connection.phone_number : null,
-        waba_id: waba ? waba.waba_id : null,
-        last_connected: connection ? connection.updated_at : null
+        status: isConnected ? 'connected' : 'disconnected',
+        phone_number: phone,
+        waba_id: waba ? (waba.whatsapp_business_account_id || waba._id.toString()) : null,
+        last_connected: connection?.updated_at || waba?.updated_at || null
       }
     });
   } catch (error) {
+    console.error('Get whatsapp status error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -63,19 +84,27 @@ export const getTemplates = async (req, res) => {
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) return res.status(404).json({ success: false, message: 'Workspace not found' });
 
-    const templates = await Template.find({ workspace_id: workspace._id, deleted_at: null }).lean();
+    const waba = await getActiveWaba(workspace._id, user.id);
+    const query = {
+      user_id: user.id,
+      ...(waba ? { waba_id: waba._id } : {}),
+      deleted_at: null
+    };
+
+    const templates = await Template.find(query).lean();
     
     return res.json({
       success: true,
       data: templates.map(t => ({
         id: t._id,
-        name: t.name,
-        category: t.category,
-        language: t.language,
-        status: t.status
+        name: t.template_name || t.name,
+        category: t.category || 'UTILITY',
+        language: t.language || 'en_US',
+        status: t.status ? t.status.toUpperCase() : 'DRAFT'
       }))
     });
   } catch (error) {
+    console.error('Get templates error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -93,19 +122,24 @@ export const sendTemplateMessage = async (req, res) => {
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) return res.status(404).json({ success: false, message: 'Workspace not found' });
 
-    const template = await Template.findOne({ workspace_id: workspace._id, name: templateName, deleted_at: null });
+    const waba = await getActiveWaba(workspace._id, user.id);
+    const query = {
+      user_id: user.id,
+      ...(waba ? { waba_id: waba._id } : {}),
+      template_name: templateName.toLowerCase(),
+      deleted_at: null
+    };
+
+    const template = await Template.findOne(query);
     if (!template) {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
-    if (template.status !== 'APPROVED') {
+    if (template.status?.toUpperCase() !== 'APPROVED') {
       return res.status(400).json({ success: false, message: 'Template is not approved' });
     }
 
     const whatsappService = new UnifiedWhatsAppService(workspace._id);
     
-    // Construct template parameters depending on the unified whatsapp service's expected format
-    // This assumes sending involves passing the template name and parameters for body components
-    // Map variables array to body parameter format usually required by Meta API
     let components = [];
     if (variables && Array.isArray(variables) && variables.length > 0) {
       components.push({
@@ -114,7 +148,15 @@ export const sendTemplateMessage = async (req, res) => {
       });
     }
 
-    const result = await whatsappService.sendTemplateMessage(contactNo, templateName, template.language, components);
+    const result = await whatsappService.sendMessage(user.id, {
+      recipientNumber: contactNo,
+      messageType: 'template',
+      templateName: template.template_name,
+      languageCode: template.language || 'en_US',
+      templateObj: template,
+      templateId: template._id,
+      templateComponents: components
+    });
     
     return res.json({
       success: true,
@@ -133,10 +175,8 @@ export const getAnalytics = async (req, res) => {
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) return res.status(404).json({ success: false, message: 'Workspace not found' });
 
-    // Aggregate messaging stats using Message model
-    // Assuming Message model has status (sent, delivered, read, failed)
     const stats = await Message.aggregate([
-      { $match: { workspace_id: workspace._id, deleted_at: null } },
+      { $match: { user_id: user.id, deleted_at: null } },
       {
         $group: {
           _id: '$status',
@@ -164,6 +204,7 @@ export const getAnalytics = async (req, res) => {
       data: formattedStats
     });
   } catch (error) {
+    console.error('Get analytics error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -180,12 +221,12 @@ export const getMessages = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [messages, total] = await Promise.all([
-      Message.find({ workspace_id: workspace._id, deleted_at: null })
+      Message.find({ user_id: user.id, deleted_at: null })
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Message.countDocuments({ workspace_id: workspace._id, deleted_at: null })
+      Message.countDocuments({ user_id: user.id, deleted_at: null })
     ]);
 
     return res.json({
@@ -193,8 +234,8 @@ export const getMessages = async (req, res) => {
       data: {
         messages: messages.map(m => ({
           id: m._id,
-          contact_number: m.contact_number || m.to,
-          type: m.type,
+          contact_number: m.contact_number || m.recipient_number || m.to,
+          type: m.message_type || m.type,
           status: m.status,
           template_name: m.template_name || null,
           created_at: m.created_at
@@ -223,17 +264,22 @@ export const syncTemplates = async (req, res) => {
     const result = await provisionTemplatesForWorkspace(workspace._id, user.id);
 
     if (result) {
-      // Return updated template list
-      const templates = await Template.find({ workspace_id: workspace._id, deleted_at: null }).lean();
+      const waba = await getActiveWaba(workspace._id, user.id);
+      const query = {
+        user_id: user.id,
+        ...(waba ? { waba_id: waba._id } : {}),
+        deleted_at: null
+      };
+      const templates = await Template.find(query).lean();
       return res.json({
         success: true,
         message: 'Templates synced successfully',
         data: templates.map(t => ({
           id: t._id,
-          name: t.name,
-          category: t.category,
-          language: t.language,
-          status: t.status
+          name: t.template_name || t.name,
+          category: t.category || 'UTILITY',
+          language: t.language || 'en_US',
+          status: t.status ? t.status.toUpperCase() : 'DRAFT'
         }))
       });
     } else {
