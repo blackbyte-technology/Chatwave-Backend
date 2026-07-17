@@ -565,9 +565,16 @@ export const buildMetaTemplatePayload = (template) => {
 
 
   const bodyVariables = template.body_variables || [];
+  let bodyText = template.message_body || "";
+  if (/^{{\d+}}/.test(bodyText.trim())) {
+    bodyText = "Hello " + bodyText.trim();
+  }
+  if (/{{\d+}}[\s.!?,]*$/.test(bodyText.trim())) {
+    bodyText = bodyText.trim() + " from InsuranceDesk.";
+  }
   const bodyComponent = {
     type: "BODY",
-    text: template.message_body,
+    text: bodyText,
   };
   if (template.call_permission === true) {
     components.push({

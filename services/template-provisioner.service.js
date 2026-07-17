@@ -16,7 +16,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Dear {{1}},\n\nYour insurance policy {{2}} is expiring on {{3}}. Please renew it before the expiry date to ensure uninterrupted coverage.\n\nRegards,\n{{4}}'
+        text: 'Dear {{1}},\n\nYour insurance policy {{2}} is expiring on {{3}}. Please renew it before the expiry date to ensure uninterrupted coverage.\n\nRegards,\n{{4}} from InsuranceDesk.'
       },
       {
         type: 'FOOTER',
@@ -37,7 +37,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\nThis is a gentle reminder to renew your policy {{2}}. Your prompt action is appreciated.\n\nThank you,\n{{3}}'
+        text: 'Hello {{1}},\n\nThis is a gentle reminder to renew your policy {{2}}. Your prompt action is appreciated.\n\nThank you,\n{{3}} from InsuranceDesk.'
       },
       {
         type: 'FOOTER',
@@ -58,7 +58,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Hi {{1}},\n\nYour premium payment for policy {{2}} is due on {{3}}. Please make the payment to avoid late fees.\n\nRegards,\n{{4}}'
+        text: 'Hi {{1}},\n\nYour premium payment for policy {{2}} is due on {{3}}. Please make the payment to avoid late fees.\n\nRegards,\n{{4}} from InsuranceDesk.'
       },
       {
         type: 'FOOTER',
@@ -79,7 +79,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Dear {{1}},\n\nWishing you a very Happy Birthday! May your year be filled with joy and success.\n\nBest Wishes,\n{{2}}'
+        text: 'Dear {{1}},\n\nWishing you a very Happy Birthday! May your year be filled with joy and success.\n\nBest Wishes,\n{{2}} from InsuranceDesk.'
       }
     ]
   },
@@ -96,7 +96,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Hi {{1}},\n\nThank you for choosing us for your insurance needs. We are thrilled to have you with us!\n\nRegards,\n{{2}}'
+        text: 'Hi {{1}},\n\nThank you for choosing us for your insurance needs. We are thrilled to have you with us!\n\nRegards,\n{{2}} from InsuranceDesk.'
       }
     ]
   },
@@ -113,7 +113,7 @@ const DEFAULT_TEMPLATES = [
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\nWe wanted to follow up regarding your recent inquiry. Please let us know if you need any further assistance.\n\nThank you,\n{{2}}'
+        text: 'Hello {{1}},\n\nWe wanted to follow up regarding your recent inquiry. Please let us know if you need any further assistance.\n\nThank you,\n{{2}} from InsuranceDesk.'
       }
     ]
   }
@@ -304,12 +304,24 @@ async function submitDraftTemplatesToMeta(waba, userId) {
         }
 
         if (template.message_body) {
+          let bodyText = template.message_body || "";
+          if (/^{{\d+}}/.test(bodyText.trim())) {
+            bodyText = "Hello " + bodyText.trim();
+          }
+          if (/{{\d+}}[\s.!?,]*$/.test(bodyText.trim())) {
+            bodyText = bodyText.trim() + " from InsuranceDesk.";
+          }
+          if (bodyText !== template.message_body) {
+            template.message_body = bodyText;
+            await template.save();
+          }
+
           const regex = /{{(\d+|[a-zA-Z0-9_]+)}}/g;
-          const matches = [...new Set(Array.from(template.message_body.matchAll(regex), m => m[1]))];
+          const matches = [...new Set(Array.from(bodyText.matchAll(regex), m => m[1]))];
 
           const bodyComp = {
             type: 'BODY',
-            text: template.message_body
+            text: bodyText
           };
 
           if (matches.length > 0) {
