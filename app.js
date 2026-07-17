@@ -169,6 +169,8 @@ import taxRoutes from "./routes/tax.routes.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
 import paymentGatewayConfigRoutes from "./routes/payment-gateway-config.routes.js";
 import paymentWebhookRoutes from "./routes/payment-webhook.routes.js";
+import partnerAuthRoutes from "./routes/partner-auth.routes.js";
+import integrationRoutes from "./routes/integration.routes.js";
 
 
 import { redirectShortLink } from "./controllers/short-link.controller.js";
@@ -248,6 +250,8 @@ app.use("/api/reply-materials", replyMaterialRoutes);
 app.use("/api/working-hours", workingHoursRoutes);
 app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/sequences", sequenceRoutes);
+app.use("/api/partner", partnerAuthRoutes);
+app.use("/api/integration", integrationRoutes);
 app.use("/api/chatbots", chatbotRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/google", googleRoutes);

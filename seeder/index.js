@@ -12,6 +12,7 @@ import seedLanguage from './seedLanguage.js';
 import createDemoUser from './seed-demo-users.js';
 import seedPlanAndAssign from './seed-plan.js';
 import seedUnlimitedPlan from './seed-unlimited-plan.js';
+import seedPartnerPlan from './partner-plan.js';
 import { connectDB } from '../models/index.js';
 
 
@@ -30,6 +31,7 @@ export const seedAll = async () => {
         await createDemoUser();
         await seedPlanAndAssign();
         await seedUnlimitedPlan();
+        await seedPartnerPlan();
         await seedPages();
         await seedAdminTemplates();
         await seedAIModels();

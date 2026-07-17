@@ -115,6 +115,15 @@ const userSchema = new mongoose.Schema({
   storage_used: {
     type: Number,
     default: 0
+  },
+  integration_source: {
+    type: String,
+    default: null,
+    enum: [null, 'insurancedesk']
+  },
+  integration_ref_id: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
