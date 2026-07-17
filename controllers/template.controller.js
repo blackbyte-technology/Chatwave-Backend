@@ -847,29 +847,47 @@ export const getAdminTemplatesForUsers = async (req, res) => {
   }
 };
 
+const findActiveWabaForTemplate = async (wabaId, userId) => {
+  if (!wabaId && !userId) return null;
+  let waba = null;
+  if (wabaId) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(String(wabaId));
+    const query = {
+      user_id: userId,
+      deleted_at: null,
+      $or: [
+        ...(isObjectId ? [{ _id: wabaId }, { workspace_id: wabaId }] : []),
+        { whatsapp_business_account_id: String(wabaId) },
+        { waba_id: String(wabaId) }
+      ]
+    };
+    waba = await WhatsappWaba.findOne(query);
+  }
+  if (!waba && userId) {
+    waba = await WhatsappWaba.findOne({ user_id: userId, is_active: true, deleted_at: null }) || await WhatsappWaba.findOne({ user_id: userId, deleted_at: null });
+  }
+  return waba;
+};
+
 export const getAllTemplates = async (req, res) => {
   try {
     const userId = req.user.owner_id;
     const { waba_id, status, category, search } = req.query;
 
-    if (!waba_id) {
-      return res.status(400).json({ error: "WABA ID is required" });
-    }
-
-    const waba = await WhatsappWaba.findOne({
-      _id: waba_id,
-      user_id: userId,
-      deleted_at: null,
-    });
+    const waba = await findActiveWabaForTemplate(waba_id, userId);
     if (!waba) {
       return res.status(404).json({ error: "WhatsApp WABA not found" });
     }
 
     const filter = {
       user_id: userId,
-      waba_id: waba_id,
       is_admin_template: { $ne: true },
-      deleted_at: null
+      deleted_at: null,
+      $or: [
+        { waba_id: waba._id },
+        { waba_id: null },
+        { waba_id: { $exists: false } }
+      ]
     };
 
     if (status) {
@@ -881,13 +899,15 @@ export const getAllTemplates = async (req, res) => {
     }
 
     if (search) {
-      filter.$or = [
+      const searchRegex = [
         { template_name: { $regex: search, $options: "i" } },
         { template_type: { $regex: search, $options: "i" } },
         { category: { $regex: search, $options: "i" } },
         { template_category: { $regex: search, $options: "i" } },
         { status: { $regex: search, $options: "i" } },
       ];
+      filter.$and = [{ $or: filter.$or }, { $or: searchRegex }];
+      delete filter.$or;
     }
 
     const templates = await Template.find(filter).sort({ created_at: -1 }).select("-__v").lean();
@@ -912,19 +932,7 @@ export const getTemplatesFromMeta = async (req, res) => {
     const userId = req.user.owner_id;
     const waba_id = req.query.waba_id || req.body?.waba_id;
 
-    if (!waba_id) {
-      return res.status(400).json({
-        success: false,
-        error: "waba_id is required (query or body)",
-      });
-    }
-
-    const waba = await WhatsappWaba.findOne({
-      _id: waba_id,
-      user_id: userId,
-      deleted_at: null,
-    });
-
+    const waba = await findActiveWabaForTemplate(waba_id, userId);
     if (!waba) {
       return res.status(404).json({
         success: false,
@@ -954,13 +962,6 @@ export const syncTemplatesFromMeta = async (req, res) => {
     const userId = req.user.owner_id;
     const { waba_id, meta_template_ids } = req.body || {};
 
-    if (!waba_id) {
-      return res.status(400).json({
-        success: false,
-        error: "waba_id is required",
-      });
-    }
-
     const idsToSync = Array.isArray(meta_template_ids) ? meta_template_ids : [];
     if (idsToSync.length === 0) {
       return res.status(400).json({
@@ -969,12 +970,7 @@ export const syncTemplatesFromMeta = async (req, res) => {
       });
     }
 
-    const waba = await WhatsappWaba.findOne({
-      _id: waba_id,
-      user_id: userId,
-      deleted_at: null,
-    });
-
+    const waba = await findActiveWabaForTemplate(waba_id, userId);
     if (!waba) {
       return res.status(404).json({
         success: false,
@@ -992,7 +988,7 @@ export const syncTemplatesFromMeta = async (req, res) => {
 
     for (const metaTemplate of metaTemplatesToSync) {
       try {
-        const doc = metaTemplateToDbDocument(metaTemplate, waba_id, userId);
+        const doc = metaTemplateToDbDocument(metaTemplate, waba._id, userId);
 
         const existing = await Template.findOne({
           user_id: userId,
@@ -1045,19 +1041,7 @@ export const syncTemplatesStatusFromMeta = async (req, res) => {
     const userId = req.user.owner_id;
     const { waba_id, template_ids } = req.body || {};
 
-    if (!waba_id) {
-      return res.status(400).json({
-        success: false,
-        error: "waba_id is required",
-      });
-    }
-
-    const waba = await WhatsappWaba.findOne({
-      _id: waba_id,
-      user_id: userId,
-      deleted_at: null,
-    });
-
+    const waba = await findActiveWabaForTemplate(waba_id, userId);
     if (!waba) {
       return res.status(404).json({
         success: false,
@@ -1067,7 +1051,11 @@ export const syncTemplatesStatusFromMeta = async (req, res) => {
 
     const query = {
       user_id: userId,
-      waba_id: waba_id,
+      $or: [
+        { waba_id: waba._id },
+        { waba_id: null },
+        { waba_id: { $exists: false } }
+      ],
       meta_template_id: { $exists: true, $ne: null, $ne: "" },
     };
     if (Array.isArray(template_ids) && template_ids.length > 0) {

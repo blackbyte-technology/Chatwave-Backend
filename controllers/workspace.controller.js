@@ -40,22 +40,27 @@ export const getWorkspaces = async (req, res) => {
             deleted_at: null
         }).sort({ createdAt: -1 }).lean();
 
-
         const connectedWabas = await WhatsappWaba.find({
             user_id: userId,
-            workspace_id: { $in: workspaces.map(ws => ws._id) },
             deleted_at: null
         }).lean();
 
-        const result = workspaces.map(ws => {
-            const waba = connectedWabas.find(w => w.workspace_id.toString() === ws._id.toString());
+        const result = await Promise.all(workspaces.map(async (ws) => {
+            let waba = connectedWabas.find(w => w.workspace_id && w.workspace_id.toString() === ws._id.toString());
+            if (!waba) {
+                waba = connectedWabas.find(w => w.is_active === true) || connectedWabas[0];
+                if (waba && !waba.workspace_id) {
+                    await WhatsappWaba.findByIdAndUpdate(waba._id, { workspace_id: ws._id });
+                    waba.workspace_id = ws._id;
+                }
+            }
             return {
                 ...ws,
-                waba_id: waba?._id || null,
-                connection_status: waba?.connection_status || null,
+                waba_id: waba?._id || waba?.whatsapp_business_account_id || null,
+                connection_status: waba?.connection_status || (waba ? 'connected' : null),
                 waba_type: waba?.provider || null
             };
-        });
+        }));
 
         return res.json({
             success: true,
@@ -80,7 +85,7 @@ export const getWorkspaceById = async (req, res) => {
             _id: id,
             user_id: userId,
             deleted_at: null
-        });
+        }).lean();
 
         if (!workspace) {
             return res.status(404).json({
@@ -89,9 +94,29 @@ export const getWorkspaceById = async (req, res) => {
             });
         }
 
+        let waba = await WhatsappWaba.findOne({
+            workspace_id: id,
+            deleted_at: null
+        }).lean();
+        if (!waba) {
+            waba = await WhatsappWaba.findOne({
+                user_id: userId,
+                is_active: true,
+                deleted_at: null
+            }).lean() || await WhatsappWaba.findOne({ user_id: userId, deleted_at: null }).lean();
+            if (waba && !waba.workspace_id) {
+                await WhatsappWaba.findByIdAndUpdate(waba._id, { workspace_id: id });
+            }
+        }
+
         return res.json({
             success: true,
-            data: workspace
+            data: {
+                ...workspace,
+                waba_id: waba?._id || waba?.whatsapp_business_account_id || null,
+                connection_status: waba?.connection_status || (waba ? 'connected' : null),
+                waba_type: waba?.provider || null
+            }
         });
     } catch (error) {
         console.error('Error fetching workspace:', error);
