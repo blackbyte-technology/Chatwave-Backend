@@ -198,7 +198,11 @@ export const provisionTemplatesForWorkspace = async (workspaceId, userId) => {
 
             const existing = await Template.findOne({
               user_id: userId,
-              meta_template_id: metaT.id
+              $or: [
+                { meta_template_id: metaT.id },
+                { template_name: (metaT.name || "").toLowerCase() }
+              ],
+              deleted_at: null
             });
 
             if (existing) {
@@ -248,6 +252,9 @@ export const provisionTemplatesForWorkspace = async (workspaceId, userId) => {
       }
     }
 
+    // 3. Automatically submit every newly created / draft template to WhatsApp Business Platform (Meta) for approval
+    await submitDraftTemplatesToMeta(waba, userId);
+
     console.log(`[TemplateProvisioner] Successfully processed templates for workspace ${workspaceId} (provisioned ${provisionedCount} new)`);
     return true;
   } catch (error) {
@@ -255,3 +262,158 @@ export const provisionTemplatesForWorkspace = async (workspaceId, userId) => {
     return false;
   }
 };
+
+async function submitDraftTemplatesToMeta(waba, userId) {
+  if (!waba || !waba.access_token || !waba.whatsapp_business_account_id) {
+    return;
+  }
+
+  try {
+    const draftTemplates = await Template.find({
+      user_id: userId,
+      $or: [
+        { waba_id: waba._id },
+        { waba_id: null },
+        { waba_id: { $exists: false } }
+      ],
+      $or: [
+        { status: 'draft' },
+        { meta_template_id: null },
+        { meta_template_id: { $exists: false } },
+        { meta_template_id: "" }
+      ],
+      deleted_at: null
+    });
+
+    if (!draftTemplates || draftTemplates.length === 0) {
+      return;
+    }
+
+    console.log(`[TemplateProvisioner] Found ${draftTemplates.length} draft/unsubmitted templates to submit to Meta...`);
+
+    for (const template of draftTemplates) {
+      try {
+        const components = [];
+
+        if (template.header && template.header.text) {
+          components.push({
+            type: 'HEADER',
+            format: 'TEXT',
+            text: template.header.text
+          });
+        }
+
+        if (template.message_body) {
+          const regex = /{{(\d+|[a-zA-Z0-9_]+)}}/g;
+          const matches = [...new Set(Array.from(template.message_body.matchAll(regex), m => m[1]))];
+
+          const bodyComp = {
+            type: 'BODY',
+            text: template.message_body
+          };
+
+          if (matches.length > 0) {
+            const isPositional = matches.every(m => /^\d+$/.test(m));
+            if (isPositional) {
+              matches.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+              const examples = matches.map((m, idx) => idx === 0 ? "John Doe" : idx === 1 ? "POL-123456" : idx === 2 ? "31-12-2026" : "InsuranceDesk Team");
+              bodyComp.example = {
+                body_text: [examples]
+              };
+            } else {
+              bodyComp.example = {
+                body_text_named_params: matches.map(m => ({
+                  param_name: m,
+                  example: m === "name" ? "John Doe" : "Sample Value"
+                }))
+              };
+            }
+          }
+
+          components.push(bodyComp);
+        }
+
+        if (template.footer_text) {
+          components.push({
+            type: 'FOOTER',
+            text: template.footer_text
+          });
+        }
+
+        if (template.buttons && Array.isArray(template.buttons) && template.buttons.length > 0) {
+          const metaButtons = template.buttons.map(btn => {
+            if (btn.type === 'phone_call') {
+              return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number };
+            } else if (btn.type === 'url') {
+              return { type: 'URL', text: btn.text, url: btn.url };
+            } else if (btn.type === 'quick_reply') {
+              return { type: 'QUICK_REPLY', text: btn.text };
+            }
+            return null;
+          }).filter(Boolean);
+
+          if (metaButtons.length > 0) {
+            components.push({
+              type: 'BUTTONS',
+              buttons: metaButtons
+            });
+          }
+        }
+
+        const payload = {
+          name: template.template_name,
+          language: template.language || "en_US",
+          category: (template.category || "UTILITY").toUpperCase(),
+          components
+        };
+
+        const url = `https://graph.facebook.com/v21.0/${waba.whatsapp_business_account_id}/message_templates`;
+        const res = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${waba.access_token}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (res && res.data && res.data.id) {
+          console.log(`[TemplateProvisioner] Successfully submitted ${template.template_name} to Meta. Meta ID: ${res.data.id}, Status: ${res.data.status}`);
+          template.meta_template_id = res.data.id;
+          template.status = (res.data.status || "PENDING").toLowerCase();
+          template.waba_id = waba._id;
+          await template.save();
+        }
+      } catch (err) {
+        const errorData = err.response?.data?.error || {};
+        const errorMessage = errorData.message || err.message || "";
+        const errorSubcode = errorData.error_subcode;
+
+        console.log(`[TemplateProvisioner] Submission of ${template.template_name} returned: ${errorMessage} (subcode: ${errorSubcode})`);
+
+        if (errorSubcode === 2388027 || errorMessage.toLowerCase().includes("already exists") || errorMessage.toLowerCase().includes("duplicate")) {
+          try {
+            const checkUrl = `https://graph.facebook.com/v21.0/${waba.whatsapp_business_account_id}/message_templates?name=${template.template_name}`;
+            const checkRes = await axios.get(checkUrl, {
+              headers: { Authorization: `Bearer ${waba.access_token}` }
+            });
+            const matchingList = checkRes.data?.data || [];
+            if (matchingList.length > 0) {
+              const metaObj = matchingList[0];
+              template.meta_template_id = metaObj.id;
+              template.status = (metaObj.status || "PENDING").toLowerCase();
+              template.rejection_reason = metaObj.rejected_reason || null;
+              template.waba_id = waba._id;
+              await template.save();
+              console.log(`[TemplateProvisioner] Synced existing Meta status for ${template.template_name}: ${template.status}`);
+            }
+          } catch (checkErr) {
+            console.error(`[TemplateProvisioner] Could not lookup existing status for ${template.template_name}:`, checkErr.message);
+          }
+        } else {
+          console.error(`[TemplateProvisioner] Failed to submit ${template.template_name} to Meta:`, JSON.stringify(errorData));
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[TemplateProvisioner] Error in submitDraftTemplatesToMeta:`, error.message);
+  }
+}

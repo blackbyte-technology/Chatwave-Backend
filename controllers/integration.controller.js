@@ -84,6 +84,13 @@ export const getTemplates = async (req, res) => {
     const workspace = await Workspace.findOne({ user_id: user.id, deleted_at: null });
     if (!workspace) return res.status(404).json({ success: false, message: 'Workspace not found' });
 
+    // Automatically synchronize status with Meta before returning templates
+    try {
+      await provisionTemplatesForWorkspace(workspace._id, user.id);
+    } catch (syncErr) {
+      console.error('Auto sync error inside getTemplates:', syncErr.message);
+    }
+
     const waba = await getActiveWaba(workspace._id, user.id);
     const query = {
       user_id: user.id,
@@ -100,7 +107,9 @@ export const getTemplates = async (req, res) => {
         name: t.template_name || t.name,
         category: t.category || 'UTILITY',
         language: t.language || 'en_US',
-        status: t.status ? t.status.toUpperCase() : 'DRAFT'
+        status: t.status ? t.status.toUpperCase() : 'DRAFT',
+        rejection_reason: t.rejection_reason || t.rejected_reason || null,
+        last_synced_at: t.updated_at || t.updatedAt || new Date().toISOString()
       }))
     });
   } catch (error) {
@@ -279,7 +288,9 @@ export const syncTemplates = async (req, res) => {
           name: t.template_name || t.name,
           category: t.category || 'UTILITY',
           language: t.language || 'en_US',
-          status: t.status ? t.status.toUpperCase() : 'DRAFT'
+          status: t.status ? t.status.toUpperCase() : 'DRAFT',
+          rejection_reason: t.rejection_reason || t.rejected_reason || null,
+          last_synced_at: t.updated_at || t.updatedAt || new Date().toISOString()
         }))
       });
     } else {
