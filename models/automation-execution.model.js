@@ -79,5 +79,6 @@ automationExecutionSchema.index({ completed_at: -1 });
 automationExecutionSchema.index({ user_id: 1, started_at: -1 });
 automationExecutionSchema.index({ flow_id: 1, started_at: -1 });
 automationExecutionSchema.index({ status: 1, created_at: -1 });
+automationExecutionSchema.index({ flow_id: 1, contact_identifier: 1, status: 1, created_at: -1 });
 
 export default mongoose.model('AutomationExecution', automationExecutionSchema);

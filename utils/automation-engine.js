@@ -170,6 +170,23 @@ class AutomationEngine {
           const shouldExecute = this.checkMessageTriggerConditions(flow, message, senderNumber, recipientNumber, messageType, null, eventData, normalizedMessagePayload);
           console.log(`Should execute flow: ${shouldExecute}`);
           if (shouldExecute) {
+            // Per-contact flow cooldown: prevent the same flow from re-executing
+            // for the same sender within 10 minutes (handles duplicate ad clicks, etc.)
+            // Skip cooldown for button/interactive clicks — they are legitimate re-entries
+            const isButtonClick = messageType === 'interactive' || (message && message.toString().includes('___btn_'));
+            if (!isButtonClick) {
+              const recentExecution = await AutomationExecution.findOne({
+                flow_id: flow._id,
+                contact_identifier: senderNumber,
+                status: { $in: ['success', 'running', 'waiting'] },
+                created_at: { $gte: new Date(Date.now() - 10 * 60 * 1000) }
+              }).lean();
+              if (recentExecution) {
+                console.log(`[AutomationEngine] Flow "${flow.name}" already executed for ${senderNumber} within 10 min (execution: ${recentExecution._id}). Skipping cooldown.`);
+                break;
+              }
+            }
+
             console.log(`Executing flow: ${flow.name} for message: ${message}`);
             await this.executeFlow(flow, {
               event_type: 'message_received',
