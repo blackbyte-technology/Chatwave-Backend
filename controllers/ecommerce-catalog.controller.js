@@ -112,11 +112,14 @@ export const syncWABACatalogs = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error syncing WABA catalogs:', error);
-    return res.status(500).json({
+    console.error('Error syncing WABA catalogs:', error.response?.data || error.message);
+    const metaError = error.response?.data?.error;
+    const statusCode = error.response?.status === 403 ? 403 : 500;
+    return res.status(statusCode).json({
       success: false,
-      error: 'Failed to sync catalogs',
-      details: error.response?.data || error.message
+      message: metaError?.message || 'Failed to sync catalogs',
+      error: metaError?.error_user_msg || metaError?.message || error.message,
+      details: error.response?.data || null
     });
   }
 };
