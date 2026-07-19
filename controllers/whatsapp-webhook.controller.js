@@ -132,6 +132,13 @@ export const handleIncomingMessage = async (req, res, io = null) => {
 
     contactDoc = await Contact.findById(contactDoc._id);
 
+    // Deduplicate incoming messages based on wa_message_id to avoid processing Meta webhook retries multiple times
+    const existingMessage = await Message.findOne({ wa_message_id: message.id }).lean();
+    if (existingMessage) {
+      console.log(`[Webhook] Duplicate message detected (wa_message_id: ${message.id}). Skipping.`);
+      return;
+    }
+
     let automatedHandled = false;
 
     const messageDoc = await Message.create({
