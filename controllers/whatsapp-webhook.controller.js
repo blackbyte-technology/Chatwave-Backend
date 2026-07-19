@@ -526,19 +526,21 @@ export const handleIncomingMessage = async (req, res, io = null) => {
           ? interactiveId
           : content;
 
-      await automationEngine.triggerEvent("message_received", {
-        message: automationMessage,
-        interactive_id: interactiveId,
-        senderNumber: message.from,
-        recipientNumber: whatsappPhoneNumber.display_phone_number,
-        messageType: message.type,
-        userId: whatsappPhoneNumber.user_id.toString(),
-        whatsappPhoneNumberId: whatsappPhoneNumber._id.toString(),
-        waMessageId: message.id,
-        waJid: message.from,
-        contactId: contactDoc?._id?.toString(),
-        timestamp: new Date(Number(message.timestamp) * 1000),
-      });
+      if (!automatedHandled) {
+        await automationEngine.triggerEvent("message_received", {
+          message: automationMessage,
+          interactive_id: interactiveId,
+          senderNumber: message.from,
+          recipientNumber: whatsappPhoneNumber.display_phone_number,
+          messageType: message.type,
+          userId: whatsappPhoneNumber.user_id.toString(),
+          whatsappPhoneNumberId: whatsappPhoneNumber._id.toString(),
+          waMessageId: message.id,
+          waJid: message.from,
+          contactId: contactDoc?._id?.toString(),
+          timestamp: new Date(Number(message.timestamp) * 1000),
+        });
+      }
     } catch (automationError) {
       console.error('Error triggering automation:', automationError);
     }
