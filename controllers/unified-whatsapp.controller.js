@@ -1727,6 +1727,22 @@ export const getEmbbededSignupConnection = async (req, res) => {
       });
     }
 
+    // Subscribe the WABA to the app's webhook so Meta delivers incoming message webhooks
+    try {
+      await axios.post(
+        `https://graph.facebook.com/v22.0/${signupData.waba_id}/subscribed_apps`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+      console.log(`WABA ${signupData.waba_id} subscribed to app webhook successfully`);
+    } catch (subscribeErr) {
+      console.error(`Failed to subscribe WABA ${signupData.waba_id} to app webhook:`, subscribeErr.response?.data || subscribeErr.message);
+    }
+
     return res.json({
       success: true,
       data: {
