@@ -352,7 +352,34 @@ class AutomationEngine {
       delete currentData.__nextHandle;
     }
 
-    const connectedNodes = this.getConnectedNodes(flow, currentNode.id, nextHandle);
+    let connectedNodes = this.getConnectedNodes(flow, currentNode.id, nextHandle);
+
+    // Smart branch selection: When processing trigger node children,
+    // if any button/list-specific condition (cond-btn-*, cond-list-*) matches
+    // the current message, skip the generic start condition (cond-start-*) to
+    // prevent re-sending the welcome message on button/list clicks.
+    if (currentNode.type === 'trigger' && connectedNodes.length > 1) {
+      const buttonCondNodes = connectedNodes.filter(n =>
+        n.type === 'condition' && (n.id.startsWith('cond-btn-') || n.id.startsWith('cond-list-'))
+      );
+
+      if (buttonCondNodes.length > 0) {
+        const anyButtonMatches = buttonCondNodes.some(n => {
+          const condition = n.parameters?.condition;
+          if (!condition) return false;
+          try {
+            return this.evaluateCondition(condition, currentData);
+          } catch {
+            return false;
+          }
+        });
+
+        if (anyButtonMatches) {
+          console.log('[AutomationEngine] Button/list condition matched — skipping cond-start branches');
+          connectedNodes = connectedNodes.filter(n => !n.id.startsWith('cond-start-'));
+        }
+      }
+    }
 
     for (const node of connectedNodes) {
       const nodeResult = await this.executeNode(node, flow, currentData, executionLog);
