@@ -532,6 +532,11 @@ class AutomationEngine {
   async executeConditionNode(node, inputData) {
     const { condition, conditions, no_match_handle } = node.parameters || {};
 
+    // Bypass 'cond-start-' conditions for ad referrals so the workflow executes properly
+    if (inputData.event_type === 'ad_click' && node.id.startsWith('cond-start-')) {
+      return { success: true, output: inputData };
+    }
+
     if (Array.isArray(conditions) && conditions.length > 0) {
       try {
         let matchedHandle = null;
