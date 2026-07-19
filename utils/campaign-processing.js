@@ -2,8 +2,9 @@ import Campaign from '../models/campaign.model.js';
 import Template from '../models/template.model.js';
 import WhatsappWaba from '../models/whatsapp-waba.model.js';
 import Contact from '../models/contact.model.js';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const API_VERSION = 'v23.0';
+const API_VERSION = META_GRAPH_API_VERSION;
 
 import { getCampaignQueue } from '../queues/campaign-queue.js';
 

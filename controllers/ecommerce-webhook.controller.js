@@ -5,8 +5,9 @@ import { WhatsappWaba, WhatsappPhoneNumber } from "../models/index.js";
 import unifiedWhatsAppService from "../services/whatsapp/unified-whatsapp.service.js";
 import axios from "axios";
 import crypto from "crypto";
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const API_VERSION = "v23.0";
+const API_VERSION = META_GRAPH_API_VERSION;
 
 const SORT_ORDER = {
   ASC: 1,

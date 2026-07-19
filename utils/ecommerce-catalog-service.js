@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { EcommerceCatalog, EcommerceProduct, WhatsappWaba } from '../models/index.js';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const API_VERSION = 'v20.0';
+const API_VERSION = META_GRAPH_API_VERSION;
 
 
 const getWABAAccessToken = async (wabaId) => {

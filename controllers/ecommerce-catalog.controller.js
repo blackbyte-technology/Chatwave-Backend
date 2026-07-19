@@ -14,7 +14,8 @@ import {
   getCatalogProductCount
 } from '../utils/ecommerce-catalog-service.js';
 import mongoose  from 'mongoose';
-const API_VERSION = 'v20.0';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
+const API_VERSION = META_GRAPH_API_VERSION;
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;

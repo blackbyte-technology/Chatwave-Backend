@@ -2,6 +2,7 @@ import axios from "axios";
 import FormData from "form-data";
 import { Form, WhatsappWaba } from "../models/index.js";
 import { v4 as uuidv4 } from "uuid";
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
 
 const DEFAULT_PAGE = 1;
@@ -525,7 +526,7 @@ const formatMetaFlowName = (name) => {
 
 const getMetaFlowJson = async (flowId, accessToken) => {
     try {
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         const assetsResp = await axios.get(
             `https://graph.facebook.com/${API_VERSION}/${flowId}/assets?fields=id,name,asset_type,download_url`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -639,7 +640,7 @@ const transformMetaPayloadToFields = (payload) => {
 };
 
 const createMetaFlow = async (wabaAccountId, accessToken, form) => {
-    const API_VERSION = "v21.0";
+    const API_VERSION = META_GRAPH_API_VERSION;
 
     const flowName = form.name
         .toLowerCase()
@@ -698,7 +699,7 @@ const createMetaFlow = async (wabaAccountId, accessToken, form) => {
 };
 
 const uploadFlowAssets = async (flowId, accessToken, payload) => {
-    const API_VERSION = "v21.0";
+    const API_VERSION = META_GRAPH_API_VERSION;
     const jsonBuffer = Buffer.from(JSON.stringify(payload), 'utf-8');
 
     const formData = new FormData();
@@ -760,7 +761,7 @@ export const syncMetaFlow = async (req, res) => {
             });
         }
 
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         let allMetaFlows = [];
 
         try {
@@ -907,7 +908,7 @@ export const syncFlowsStatusFromMeta = async (req, res) => {
             return res.status(404).json({ success: false, error: "WhatsApp WABA not found" });
         }
 
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         let allMetaFlows = [];
         try {
             const response = await axios.get(
@@ -1018,7 +1019,7 @@ export const publishForm = async (req, res) => {
 
         const flowId = form.flow.flow_id;
         const accessToken = waba.access_token;
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         try {
             const response = await axios.post(
                 `https://graph.facebook.com/${API_VERSION}/${flowId}/publish`,
@@ -1062,7 +1063,7 @@ export const publishForm = async (req, res) => {
 
 export const retriveMetaFlow = async (flow_id, accessToken) => {
     try {
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         const response = await axios.get(
             `https://graph.facebook.com/${API_VERSION}/${flow_id}`,
             {
@@ -1081,7 +1082,7 @@ export const retriveMetaFlow = async (flow_id, accessToken) => {
 
 export const deleteMetaFlow = async (flow_id, accessToken) => {
     try {
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         const response = await axios.delete(
             `https://graph.facebook.com/${API_VERSION}/${flow_id}`,
             {
@@ -1100,7 +1101,7 @@ export const deleteMetaFlow = async (flow_id, accessToken) => {
 
 export const deprecateMetaFlow = async (flow_id, accessToken) => {
     try {
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         const response = await axios.post(
             `https://graph.facebook.com/${API_VERSION}/${flow_id}/deprecate`,
             {},
@@ -1133,7 +1134,7 @@ export const getAllMetaFlows = async (req, res) => {
             return res.status(404).json({ success: false, error: "WhatsApp WABA not found" });
         }
 
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         const response = await axios.get(
             `https://graph.facebook.com/${API_VERSION}/${waba.whatsapp_business_account_id}/flows`,
             {
@@ -1476,7 +1477,7 @@ export const migrateFlows = async (req, res) => {
             return res.status(400).json({ success: false, error: "Flow name could not be determined for migration" });
         }
 
-        const API_VERSION = "v21.0";
+        const API_VERSION = META_GRAPH_API_VERSION;
         try {
             const [sourceMeta, destMeta] = await Promise.all([
                 axios.get(`https://graph.facebook.com/${API_VERSION}/${sourceWaba.whatsapp_business_account_id}`, {

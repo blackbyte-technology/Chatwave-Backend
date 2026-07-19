@@ -7,8 +7,9 @@ import * as segmentService from '../services/segment.service.js';
 import { processCampaignInBackground } from '../utils/campaign-processing.js';
 import { saveBufferLocally } from '../utils/whatsapp-message-handler.js';
 import { getWhatsAppTypeFromMime } from '../utils/uploadMediaToWhatsapp.js';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const API_VERSION = 'v23.0';
+const API_VERSION = META_GRAPH_API_VERSION;
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;

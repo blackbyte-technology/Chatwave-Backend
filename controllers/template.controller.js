@@ -9,9 +9,10 @@ import path from "path";
 import axios from "axios";
 import { getWhatsAppTypeFromMime, getWhatsAppMediaUrl } from "../utils/uploadMediaToWhatsapp.js";
 import { callAIModel as commonCallAIModel } from '../utils/ai-utils.js';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const API_VERSION = "v21.0";
-const UPDATE_API_VERSION = "v23.0";
+const API_VERSION = META_GRAPH_API_VERSION;
+const UPDATE_API_VERSION = META_GRAPH_API_VERSION;
 
 export const createTemplate = async (req, res) => {
   try {

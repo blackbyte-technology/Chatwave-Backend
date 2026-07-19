@@ -1,9 +1,9 @@
 import { Template, WhatsappWaba } from '../models/index.js';
 import UnifiedWhatsAppService from './whatsapp/unified-whatsapp.service.js';
 import axios from 'axios';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
 // ─── Meta Graph API Configuration ───────────────────────────────────────────
-const META_GRAPH_API_VERSION = 'v21.0';
 const META_GRAPH_BASE_URL = `https://graph.facebook.com/${META_GRAPH_API_VERSION}`;
 
 // ─── Default Templates ──────────────────────────────────────────────────────
