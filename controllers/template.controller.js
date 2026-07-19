@@ -1788,7 +1788,7 @@ export const updateTemplate = async (req, res) => {
         console.error("Full error response:", JSON.stringify(metaError.response?.data, null, 2));
         return res.status(400).json({
           success: false,
-          message: error.response?.data.error.error_user_msg || error.message,
+          message: metaError.response?.data?.error?.error_user_msg || metaError.message,
           error: metaError.response?.data?.error?.message || metaError.message,
           error_details: metaError.response?.data || null,
           local_template_updated: true,
