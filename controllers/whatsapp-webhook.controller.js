@@ -39,7 +39,7 @@ export const handleIncomingMessage = async (req, res, io = null) => {
     const value = changes?.value;
 
     if (!value?.messages) {
-      return res.sendStatus(200);
+      return;
     }
 
     const message = value.messages[0];
@@ -74,7 +74,7 @@ export const handleIncomingMessage = async (req, res, io = null) => {
 
     if (!whatsappPhoneNumber || !whatsappPhoneNumber.waba_id) {
       console.log(`WhatsApp phone number not found for phone_number_id: ${phoneNumberId}`);
-      return res.sendStatus(200);
+      return;
     }
 
     const { access_token } = whatsappPhoneNumber.waba_id;
@@ -325,7 +325,7 @@ export const handleIncomingMessage = async (req, res, io = null) => {
             whatsappPhoneNumberId: whatsappPhoneNumber._id,
             inputData: inputData
           });
-          return res.sendStatus(200);
+          return;
         }
       } catch (err) {
         console.error("[PIVOTAL] Error resuming questionnaire:", err);
@@ -341,7 +341,7 @@ export const handleIncomingMessage = async (req, res, io = null) => {
           const selectedDate = selectionId.replace('date_', '');
           console.log(`[PIVOTAL] Date selection detected: ${selectedDate}`);
           await appointmentService.sendTimeSelection(whatsappPhoneNumber.user_id, contactDoc._id, configId, selectedDate, whatsappPhoneNumber._id, inputData);
-          return res.sendStatus(200);
+          return;
         }
         else if (waitingType === 'appointment_time_selection' && selectionId.startsWith('slot_')) {
           const slotStart = selectionId.replace('slot_', '');
@@ -386,7 +386,7 @@ export const handleIncomingMessage = async (req, res, io = null) => {
               await contactDoc.save();
             }
           }
-          return res.sendStatus(200);
+          return;
         }
       } catch (err) {
         console.error("[PIVOTAL] Error handling appointment list reply:", err);
@@ -402,12 +402,12 @@ export const handleIncomingMessage = async (req, res, io = null) => {
           if (buttonId === 'status_confirm') {
             if (!bookingId) {
               console.error(`[PIVOTAL] Error: status_confirm clicked but bookingId is null in metadata.`);
-              return res.sendStatus(200);
+              return;
             }
             const booking = await AppointmentBooking.findByIdAndUpdate(bookingId, { status: 'confirmed' }, { returnDocument: 'after' });
             if (!booking) {
               console.error(`[PIVOTAL] Error: Booking document ${bookingId} not found during confirmation.`);
-              return res.sendStatus(200);
+              return;
             }
             const config = await AppointmentConfig.findById(booking.config_id).lean();
             if (config?.confirm_template_id) {
@@ -424,19 +424,19 @@ export const handleIncomingMessage = async (req, res, io = null) => {
           else if (buttonId === 'status_reschedule') {
             if (!bookingId) {
               console.error(`[PIVOTAL] Error: status_reschedule clicked but bookingId is null.`);
-              return res.sendStatus(200);
+              return;
             }
             const inputData = JSON.parse(metadata.automation_input_data || "{}");
             contactDoc.metadata.automation_reschedule_booking_id = bookingId;
             contactDoc.markModified('metadata');
             await contactDoc.save();
             await appointmentService.sendDateSelection(whatsappPhoneNumber.user_id, contactDoc._id, configId, whatsappPhoneNumber._id, inputData);
-            return res.sendStatus(200);
+            return;
           }
 
           contactDoc.markModified('metadata');
           await contactDoc.save();
-          return res.sendStatus(200);
+          return;
         } catch (err) {
           console.error("[PIVOTAL] Error handling appointment status button:", err);
         }
@@ -724,11 +724,11 @@ export const handleIncomingMessage = async (req, res, io = null) => {
       }
     }
 
-    res.sendStatus(200);
+    return;
 
   } catch (error) {
     console.error("WhatsApp webhook error:", error);
-    res.sendStatus(200);
+    return;
   }
 };
 
@@ -742,7 +742,7 @@ export const handleStatusUpdate = async (req, res, io = null) => {
     const value = changes?.value;
 
     if (!value?.statuses) {
-      return res.sendStatus(200);
+      return;
     }
 
     const status = value.statuses[0];
@@ -829,11 +829,11 @@ export const handleStatusUpdate = async (req, res, io = null) => {
       console.error(`Error updating status for message ${waMessageId}:`, updateError);
     }
 
-    res.sendStatus(200);
+    return;
 
   } catch (error) {
     console.error("WhatsApp status webhook error:", error);
-    res.sendStatus(200);
+    return;
   }
 };
 
