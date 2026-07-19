@@ -602,9 +602,15 @@ class AutomationEngine {
 
     switch (operator) {
       case 'equals':
-        return fieldValue == value;
+        if (Array.isArray(value)) {
+          return value.some(v => String(v).toLowerCase() === String(fieldValue).toLowerCase());
+        }
+        return String(fieldValue).toLowerCase() === String(value).toLowerCase();
       case 'not_equals':
-        return fieldValue != value;
+        if (Array.isArray(value)) {
+          return !value.some(v => String(v).toLowerCase() === String(fieldValue).toLowerCase());
+        }
+        return String(fieldValue).toLowerCase() !== String(value).toLowerCase();
       case 'contains':
         return strField.includes(strValue);
       case 'not_contains':
