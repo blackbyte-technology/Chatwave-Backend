@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { sendMail } from '../utils/mail.js';
 import axios from 'axios';
+import { META_GRAPH_API_URL } from '../config/meta-api.config.js';
 
 
 const OTP_LENGTH = 6;
@@ -54,7 +55,7 @@ export const sendWhatsAppOTP = async (countryCode, phone, otp) => {
     };
 
     const response = await axios.post(
-      `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`,
+      `${META_GRAPH_API_URL}/${PHONE_NUMBER_ID}/messages`,
       payload,
       {
         headers: {

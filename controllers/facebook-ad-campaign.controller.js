@@ -6,8 +6,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { FacebookConnection, FacebookPage, FacebookAdAccount, AutomationFlow, FacebookAdSet, FacebookAd } from '../models/index.js';
 import FacebookAdCampaign from '../models/facebook-ad-campaign.model.js';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const FB_API_VERSION = 'v20.0';
+const FB_API_VERSION = META_GRAPH_API_VERSION;
 const BASE = `https://graph.facebook.com/${FB_API_VERSION}`;
 
 

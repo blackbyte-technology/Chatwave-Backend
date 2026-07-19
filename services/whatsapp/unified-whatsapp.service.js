@@ -14,6 +14,7 @@ const {
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { META_GRAPH_API_URL } from '../../config/meta-api.config.js';
 
 const PROVIDER_TYPES = {
   BUSINESS_API: 'business_api',
@@ -605,7 +606,7 @@ class UnifiedWhatsAppService {
 
         try {
           const response = await axios.get(
-            `https://graph.facebook.com/v19.0/${conn.phone_number_id}`,
+            `${META_GRAPH_API_URL}/${conn.phone_number_id}`,
             {
               params: {
                 fields: 'verified_name,quality_rating'

@@ -5,6 +5,7 @@ import { Setting } from '../models/index.js';
 const WHATSAPP_JID_SUFFIX = '@s.whatsapp.net';
 import axios from 'axios';
 import { WhatsappConnection } from '../models/index.js';
+import { META_GRAPH_API_URL } from '../config/meta-api.config.js';
 import { assignChatToAgent as assignChatToAgentFromChat } from './chat.controller.js';
 import paymentLinkService from '../services/payment-link.service.js';
 import mongoose from 'mongoose';
@@ -1638,7 +1639,7 @@ export const getEmbbededSignupConnection = async (req, res) => {
     const { app_id: APP_ID, app_secret: APP_SECRET } = metaSettings;
 
     const tokenRes = await axios.get(
-      'https://graph.facebook.com/v22.0/oauth/access_token',
+      `${META_GRAPH_API_URL}/oauth/access_token`,
       {
         params: {
           client_id: APP_ID,
@@ -1651,7 +1652,7 @@ export const getEmbbededSignupConnection = async (req, res) => {
     const accessToken = tokenRes.data.access_token;
 
     const phoneRes = await axios.get(
-      `https://graph.facebook.com/v22.0/${signupData.phone_number_id}`,
+      `${META_GRAPH_API_URL}/${signupData.phone_number_id}`,
       {
         params: {
           fields: 'display_phone_number,verified_name,quality_rating'
@@ -1730,7 +1731,7 @@ export const getEmbbededSignupConnection = async (req, res) => {
     // Subscribe the WABA to the app's webhook so Meta delivers incoming message webhooks
     try {
       await axios.post(
-        `https://graph.facebook.com/v22.0/${signupData.waba_id}/subscribed_apps`,
+        `${META_GRAPH_API_URL}/${signupData.waba_id}/subscribed_apps`,
         {},
         {
           headers: {
@@ -1803,7 +1804,7 @@ export const getUserConnections = async (req, res) => {
 
             try {
               const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${phone.phone_number_id}`,
+                `${META_GRAPH_API_URL}/${phone.phone_number_id}`,
                 {
                   params: {
                     fields: 'verified_name,quality_rating'
@@ -1913,7 +1914,7 @@ export const getMyPhoneNumbers = async (req, res) => {
         if (phone.waba_id?.access_token) {
           try {
             const response = await axios.get(
-              `https://graph.facebook.com/v22.0/${phone.phone_number_id}`,
+              `${META_GRAPH_API_URL}/${phone.phone_number_id}`,
               {
                 params: { fields: "verified_name,quality_rating" },
                 headers: {
@@ -2005,7 +2006,7 @@ export const getWabaPhoneNumbers = async (req, res) => {
 
         try {
           const response = await axios.get(
-            `https://graph.facebook.com/v22.0/${phone.phone_number_id}`,
+            `${META_GRAPH_API_URL}/${phone.phone_number_id}`,
             {
               params: {
                 fields: 'verified_name,quality_rating'

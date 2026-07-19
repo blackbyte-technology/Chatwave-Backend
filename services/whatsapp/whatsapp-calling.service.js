@@ -2,8 +2,9 @@ import axios from 'axios';
 
 import { WhatsappPhoneNumber } from '../../models/index.js';
 import webrtcService from './webrtc.service.js';
+import { META_GRAPH_API_VERSION } from '../../config/meta-api.config.js';
 
-const WHATSAPP_API_VERSION = 'v19.0';
+const WHATSAPP_API_VERSION = META_GRAPH_API_VERSION;
 const WHATSAPP_GRAPH_API_APP_URL = 'https://graph.facebook.com';
 
 class WhatsappCallingService {

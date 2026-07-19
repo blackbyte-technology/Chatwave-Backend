@@ -8,9 +8,10 @@ import { saveBufferLocally } from '../utils/whatsapp-message-handler.js';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
 
-const WHATSAPP_API_VERSION = 'v19.0';
+const WHATSAPP_API_VERSION = META_GRAPH_API_VERSION;
 const WHATSAPP_GRAPH_API_APP_URL = 'https://graph.facebook.com';
 
 const MESSAGE_TYPES = {

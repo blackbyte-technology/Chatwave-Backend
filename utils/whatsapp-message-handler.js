@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { Setting } from '../models/index.js';
+import { META_GRAPH_API_URL } from '../config/meta-api.config.js';
 import AWSStorage from './aws-storage.js';
 const writeFile = promisify(fs.writeFile);
 
@@ -115,7 +116,7 @@ export function parseIncomingMessage(message) {
 
 export async function getWhatsAppMediaUrl(mediaId, access_token) {
   const res = await axios.get(
-    `https://graph.facebook.com/v19.0/${mediaId}`,
+    `${META_GRAPH_API_URL}/${mediaId}`,
     {
       headers: { Authorization: `Bearer ${access_token}` }
     }

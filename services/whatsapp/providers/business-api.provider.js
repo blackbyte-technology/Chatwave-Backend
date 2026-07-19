@@ -8,8 +8,9 @@ import {
   getWhatsAppMediaUrl
 } from '../../../utils/uploadMediaToWhatsapp.js';
 import { saveBufferLocally, getExtension } from '../../../utils/whatsapp-message-handler.js';
+import { META_GRAPH_API_VERSION } from '../../../config/meta-api.config.js';
 
-const WHATSAPP_API_VERSION = 'v22.0';
+const WHATSAPP_API_VERSION = META_GRAPH_API_VERSION;
 const WHATSAPP_GRAPH_API_APP_URL = 'https://graph.facebook.com';
 
 const MESSAGE_TYPES = {

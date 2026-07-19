@@ -6,6 +6,7 @@ import path from 'path';
 import FormData from 'form-data';
 import whatsappCallingService from './whatsapp-calling.service.js';
 import webrtcService from './webrtc.service.js';
+import { META_GRAPH_API_URL } from '../../config/meta-api.config.js';
 import opusscript from 'opusscript';
 
 
@@ -1249,7 +1250,7 @@ async executeFunctionWithCollectedParams(functionDef, params, callLog) {
             const localSdp = pc.localDescription.sdp;
 
             const response = await axios.post(
-                `https://graph.facebook.com/v21.0/${phoneNumberId}/calls`,
+                `${META_GRAPH_API_URL}/${phoneNumberId}/calls`,
                 {
                     messaging_product: 'whatsapp',
                     to: contactNumber,

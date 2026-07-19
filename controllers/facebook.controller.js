@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 import { Setting, FacebookConnection, FacebookPage, FacebookAdAccount, WhatsappPhoneNumber } from '../models/index.js';
 import crypto from 'crypto';
 import axios from 'axios';
+import { META_GRAPH_API_VERSION } from '../config/meta-api.config.js';
 
-const FB_API_VERSION = 'v22.0';
+const FB_API_VERSION = META_GRAPH_API_VERSION;
 
 
 const fetchAllFacebookPages = async (accessToken, fbUserId, userId) => {
