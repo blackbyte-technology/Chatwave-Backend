@@ -45,11 +45,32 @@ export const handleIncomingMessage = async (req, res, io = null) => {
     const message = value.messages[0];
     const phoneNumberId = value.metadata.phone_number_id;
 
-    const whatsappPhoneNumber = await WhatsappPhoneNumber.findOne({
+    let whatsappPhoneNumber = await WhatsappPhoneNumber.findOne({
       phone_number_id: phoneNumberId
     })
       .populate('waba_id')
       .lean();
+
+    // If not found by exact phone_number_id, Meta may have reassigned the ID.
+    // Try to find any active phone number and update the stored ID.
+    if (!whatsappPhoneNumber || !whatsappPhoneNumber.waba_id) {
+      console.log(`WhatsApp phone number not found for phone_number_id: ${phoneNumberId}, trying fallback lookup...`);
+      whatsappPhoneNumber = await WhatsappPhoneNumber.findOne({
+        is_active: true,
+        deleted_at: null
+      })
+        .populate('waba_id')
+        .lean();
+
+      if (whatsappPhoneNumber && whatsappPhoneNumber.waba_id) {
+        // Update the stored phone_number_id to match what Meta is now sending
+        await WhatsappPhoneNumber.updateOne(
+          { _id: whatsappPhoneNumber._id },
+          { $set: { phone_number_id: phoneNumberId } }
+        );
+        console.log(`Updated phone_number_id from ${whatsappPhoneNumber.phone_number_id} to ${phoneNumberId}`);
+      }
+    }
 
     if (!whatsappPhoneNumber || !whatsappPhoneNumber.waba_id) {
       console.log(`WhatsApp phone number not found for phone_number_id: ${phoneNumberId}`);
