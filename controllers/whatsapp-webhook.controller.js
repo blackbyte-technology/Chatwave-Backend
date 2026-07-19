@@ -31,6 +31,8 @@ export const handleWebhookVerification = (req, res) => {
 
 
 export const handleIncomingMessage = async (req, res, io = null) => {
+  // Immediately acknowledge the webhook to prevent Meta retries
+  res.status(200).send("EVENT_RECEIVED");
   try {
     console.log("WhatsApp webhook called");
 
@@ -734,6 +736,8 @@ export const handleIncomingMessage = async (req, res, io = null) => {
 
 
 export const handleStatusUpdate = async (req, res, io = null) => {
+  // Immediately acknowledge the webhook to prevent Meta retries
+  res.status(200).send("EVENT_RECEIVED");
   try {
     console.log("WhatsApp status webhook called");
 
