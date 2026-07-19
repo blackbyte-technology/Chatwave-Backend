@@ -47,6 +47,13 @@ export const handleIncomingMessage = async (req, res, io = null) => {
     const message = value.messages[0];
     const phoneNumberId = value.metadata.phone_number_id;
 
+    // Deduplicate: reject Meta webhook retries for the same message BEFORE any DB work
+    const existingMessage = await Message.findOne({ wa_message_id: message.id }).lean();
+    if (existingMessage) {
+      console.log(`[Webhook] Duplicate message detected (wa_message_id: ${message.id}). Skipping.`);
+      return;
+    }
+
     let whatsappPhoneNumber = await WhatsappPhoneNumber.findOne({
       phone_number_id: phoneNumberId
     })
@@ -132,35 +139,40 @@ export const handleIncomingMessage = async (req, res, io = null) => {
 
     contactDoc = await Contact.findById(contactDoc._id);
 
-    // Deduplicate incoming messages based on wa_message_id to avoid processing Meta webhook retries multiple times
-    const existingMessage = await Message.findOne({ wa_message_id: message.id }).lean();
-    if (existingMessage) {
-      console.log(`[Webhook] Duplicate message detected (wa_message_id: ${message.id}). Skipping.`);
-      return;
-    }
+
 
     let automatedHandled = false;
 
-    const messageDoc = await Message.create({
-      sender_number: message.from,
-      recipient_number: whatsappPhoneNumber.display_phone_number,
-      message_type: message.type,
-      content,
-      wa_message_id: message.id,
-      wa_media_id: mediaId,
-      file_url: storedPath,
-      file_type: fileType,
-      from_me: false,
-      direction: "inbound",
-      wa_timestamp: new Date(Number(message.timestamp) * 1000),
-      metadata: message,
-      user_id: whatsappPhoneNumber.user_id,
-      contact_id: contactDoc._id,
-      interactive_data: interactiveData,
-      provider: 'business_api',
-      reply_message_id: replyMessageId,
-      reaction_message_id: reactionMessageId
-    });
+    let messageDoc;
+    try {
+      messageDoc = await Message.create({
+        sender_number: message.from,
+        recipient_number: whatsappPhoneNumber.display_phone_number,
+        message_type: message.type,
+        content,
+        wa_message_id: message.id,
+        wa_media_id: mediaId,
+        file_url: storedPath,
+        file_type: fileType,
+        from_me: false,
+        direction: "inbound",
+        wa_timestamp: new Date(Number(message.timestamp) * 1000),
+        metadata: message,
+        user_id: whatsappPhoneNumber.user_id,
+        contact_id: contactDoc._id,
+        interactive_data: interactiveData,
+        provider: 'business_api',
+        reply_message_id: replyMessageId,
+        reaction_message_id: reactionMessageId
+      });
+    } catch (createErr) {
+      // Unique index on wa_message_id caught a race condition duplicate
+      if (createErr.code === 11000) {
+        console.log(`[Webhook] Race condition duplicate caught by unique index (wa_message_id: ${message.id}). Skipping.`);
+        return;
+      }
+      throw createErr;
+    }
 
   
     if (message.referral && message.referral.source_id && message.referral.source_type === 'ad') {

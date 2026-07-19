@@ -167,6 +167,7 @@ messageSchema.index({ read_status: 1 });
 messageSchema.index({ is_delivered: 1, delivered_at: -1 });
 messageSchema.index({ is_seen: 1, seen_at: -1 });
 messageSchema.index({ wa_status: 1 });
+messageSchema.index({ wa_message_id: 1 }, { unique: true, sparse: true });
 
 messageSchema.query.active = function () {
   return this.where({ deleted_at: null });
