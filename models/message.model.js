@@ -30,7 +30,7 @@ const messageSchema = new mongoose.Schema({
   },
   message_type: {
     type: String,
-    enum: ['text', 'link', 'image', 'sticker', 'file', 'video', 'poll', 'form', 'system', 'call', 'document', 'audio', 'location', 'interactive', 'template', 'order', 'system_messages' , 'reaction'],
+    enum: ['text', 'link', 'image', 'sticker', 'file', 'video', 'poll', 'form', 'system', 'call', 'document', 'audio', 'location', 'interactive', 'template', 'order', 'system_messages' , 'reaction', 'button'],
     default: 'text'
   },
   file_url: {
