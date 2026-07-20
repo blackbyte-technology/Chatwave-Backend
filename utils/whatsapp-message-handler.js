@@ -94,6 +94,16 @@ export function parseIncomingMessage(message) {
       console.log("content", content)
       break;
 
+    case "button":
+      // Template quick_reply button clicks come as type "button"
+      // with message.button.text (display text) and message.button.payload
+      if (message.button) {
+        content = message.button.text || message.button.payload || null;
+        interactiveId = message.button.payload || message.button.text || null;
+        fileType = "button_reply";
+      }
+      break;
+
     case "reaction":
       reactionMessageId = message.reaction.message_id;
       reactionEmoji = message.reaction.emoji;

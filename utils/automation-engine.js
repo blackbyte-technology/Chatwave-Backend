@@ -173,7 +173,7 @@ class AutomationEngine {
             // Per-contact flow cooldown: prevent the same flow from re-executing
             // for the same sender within 10 minutes (handles duplicate ad clicks, etc.)
             // Skip cooldown for button/interactive clicks — they are legitimate re-entries
-            const isButtonClick = messageType === 'interactive' || (message && message.toString().includes('___btn_'));
+            const isButtonClick = messageType === 'interactive' || messageType === 'button' || (message && message.toString().includes('___btn_'));
             if (!isButtonClick) {
               const recentExecution = await AutomationExecution.findOne({
                 flow_id: flow._id,

@@ -541,9 +541,11 @@ export const handleIncomingMessage = async (req, res, io = null) => {
 
     try {
       const automationMessage =
-        message.type === "interactive" && interactiveId
+        (message.type === "interactive" && interactiveId)
           ? interactiveId
-          : content;
+          : (message.type === "button" && content)
+            ? content
+            : content;
 
       if (!automatedHandled) {
         await automationEngine.triggerEvent("message_received", {
