@@ -91,7 +91,13 @@ const initializeQueueSystem = () => {
             });
           } else if (fileExt === '.xlsx' || fileExt === '.xls') {
 
-            const rows = await readXlsxFile(filepath);
+            let rows = await readXlsxFile(filepath);
+
+            // read-excel-file returns [{sheet, data}] format when Excel has named sheets
+            // Handle both formats: direct rows array OR array of sheet objects
+            if (rows.length > 0 && rows[0] && !Array.isArray(rows[0]) && rows[0].data) {
+              rows = rows[0].data;
+            }
 
             const headers = rows[0].map(h => String(h).trim());
 
