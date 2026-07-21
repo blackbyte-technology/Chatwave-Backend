@@ -221,36 +221,72 @@ const initializeQueueSystem = () => {
                 }
               }
 
+              // Sanitize custom_fields: convert Mongoose Map to plain object before merging
+              const sanitizeCustomFields = (fields) => {
+                if (!fields) return {};
+                if (fields instanceof Map || typeof fields?.toJSON === 'function') {
+                  return Object.fromEntries(fields);
+                }
+                if (typeof fields === 'object' && !Array.isArray(fields)) {
+                  return { ...fields };
+                }
+                return {};
+              };
+
+              // Use user_id for lookup (matches unique index: phone_number + user_id)
+              // Don't filter by deleted_at to also catch soft-deleted duplicates
               const existingContact = await Contact.findOne({
                 phone_number: cleanedPhone,
-                created_by: userId,
-                deleted_at: null
+                user_id: userId
               });
 
               if (existingContact) {
+                const existingCF = sanitizeCustomFields(existingContact.custom_fields);
+                const mergedCF = { ...existingCF, ...contactCustomFields };
+
                 existingContact.name = name;
                 existingContact.email = email || existingContact.email;
                 existingContact.tags = [...new Set([...existingContact.tags.map(t => t.toString()), ...tagIds.map(t => t.toString())])];
-                existingContact.custom_fields = { ...existingContact.custom_fields, ...contactCustomFields };
+                existingContact.custom_fields = new Map(Object.entries(mergedCF));
                 existingContact.updated_by = userId;
                 existingContact.status = status;
-                if (!existingContact.user_id) {
-                    existingContact.user_id = userId; 
+                existingContact.deleted_at = null; // Restore if soft-deleted
+                if (!existingContact.created_by) {
+                  existingContact.created_by = userId;
                 }
                 await existingContact.save();
               } else {
-                await Contact.create({
-                  phone_number: cleanedPhone,
-                  name: name,
-                  email: email || null,
-                  tags: tagIds,
-                  custom_fields: contactCustomFields,
-                  status: status,
-                  source: 'whatsapp',
-                  user_id: userId,
-                  created_by: userId,
-                  updated_by: userId
-                });
+                try {
+                  await Contact.create({
+                    phone_number: cleanedPhone,
+                    name: name,
+                    email: email || null,
+                    tags: tagIds,
+                    custom_fields: contactCustomFields,
+                    status: status,
+                    source: 'whatsapp',
+                    user_id: userId,
+                    created_by: userId,
+                    updated_by: userId
+                  });
+                } catch (createError) {
+                  // Handle race condition: contact was created between findOne and create
+                  if (createError.code === 11000) {
+                    await Contact.findOneAndUpdate(
+                      { phone_number: cleanedPhone, user_id: userId },
+                      {
+                        $set: {
+                          name, email: email || undefined, status,
+                          updated_by: userId, deleted_at: null,
+                          ...Object.fromEntries(Object.entries(contactCustomFields).map(([k, v]) => [`custom_fields.${k}`, v]))
+                        },
+                        $addToSet: { tags: { $each: tagIds } }
+                      }
+                    );
+                  } else {
+                    throw createError;
+                  }
+                }
               }
 
               processedCount++;
