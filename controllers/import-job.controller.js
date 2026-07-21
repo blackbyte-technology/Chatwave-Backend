@@ -37,12 +37,18 @@ export const getImportJobs = async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
+        // Map error_logs -> errors for frontend compatibility
+        const mappedJobs = importJobs.map(job => ({
+            ...job,
+            errors: job.error_logs || [],
+        }));
+
         const total = await ImportJob.countDocuments(query);
 
         return res.status(200).json({
             success: true,
             data: {
-                import_jobs: importJobs,
+                import_jobs: mappedJobs,
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages: Math.ceil(total / parseInt(limit)),
@@ -78,7 +84,10 @@ export const getImportJobById = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            data: importJob,
+            data: {
+                ...importJob,
+                errors: importJob.error_logs || [],
+            },
         });
     } catch (error) {
         console.error('Error fetching import job:', error);
