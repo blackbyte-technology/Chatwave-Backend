@@ -61,7 +61,14 @@ const initializeQueueSystem = () => {
           timestamp: new Date().toISOString()
         });
 
-        const { userId, filepath, originalFilename } = job.data;
+        const { userId, filepath: rawFilepath, originalFilename } = job.data;
+        
+        // Upload middleware sets path as '/uploads/imports/file.xlsx' (leading slash)
+        // which resolves to system root. Resolve it relative to app directory instead.
+        let filepath = rawFilepath;
+        if (filepath.startsWith('/uploads') && !fs.existsSync(filepath)) {
+          filepath = path.join(process.cwd(), filepath.substring(1));
+        }
         let processedCount = 0;
         let errorCount = 0;
         const errors = [];
