@@ -60,6 +60,14 @@ const automationExecutionSchema = new mongoose.Schema({
   },
   error: {
     type: mongoose.Schema.Types.Mixed
+  },
+  scheduled_resume_at: {
+    type: Date,
+    default: null
+  },
+  delay_job_id: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

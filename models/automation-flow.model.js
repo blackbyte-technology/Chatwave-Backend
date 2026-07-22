@@ -51,6 +51,7 @@ const automationFlowSchema = new mongoose.Schema({
             'appointment_flow',
             'api',
             'wait_for_reply',
+            'update_lead_score',
             'custom'
           ]
         },

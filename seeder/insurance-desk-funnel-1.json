@@ -1,0 +1,783 @@
+{
+  "name": "Insurance Desk – Funnel 1 (Meta Lead → Trial Activation)",
+  "description": "5-day WhatsApp automation funnel for converting Meta ad leads to Insurance Desk trial activations. Includes micro-conversation strategy, lead scoring, interest-based personalization, and urgency-driven CTAs.",
+  "is_active": true,
+  "triggers": [
+    {
+      "event_type": "message_received",
+      "conditions": {}
+    }
+  ],
+  "nodes": [
+    {
+      "id": "trigger-meta-lead",
+      "type": "trigger",
+      "position": { "x": 400, "y": 0 },
+      "name": "Meta Lead Entry",
+      "description": "Triggered when a lead messages from Meta ad",
+      "parameters": {}
+    },
+    {
+      "id": "cond-start-welcome",
+      "type": "condition",
+      "position": { "x": 400, "y": 100 },
+      "name": "Start Condition",
+      "description": "Match any incoming message to start funnel",
+      "parameters": {
+        "condition": {
+          "field": "message",
+          "operator": "is_not_empty",
+          "value": ""
+        }
+      }
+    },
+    {
+      "id": "tag-meta-lead",
+      "type": "add_tag",
+      "position": { "x": 400, "y": 200 },
+      "name": "Assign META_LEAD Tag",
+      "description": "Tag contact as META_LEAD",
+      "parameters": {
+        "tag_name": "META_LEAD"
+      }
+    },
+    {
+      "id": "score-welcome",
+      "type": "update_lead_score",
+      "position": { "x": 400, "y": 280 },
+      "name": "Score: Welcome (+5)",
+      "description": "Opened welcome message",
+      "parameters": {
+        "score_action": "increment",
+        "score_value": 5,
+        "auto_tag": true
+      }
+    },
+    {
+      "id": "msg-welcome",
+      "type": "send_message",
+      "position": { "x": 400, "y": 360 },
+      "name": "Welcome Message",
+      "description": "Send welcome message with 3 quick reply buttons",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🎉 Welcome to *Insurance Desk!*\n\nGrow your insurance business with our *30-Day FREE Trial.*\n\n✅ No Credit Card Required\n✅ Full Feature Access\n✅ Free Onboarding Support\n\n🎥 Watch Demo Video\n\n👇 Choose what you'd like to do.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Free Trial", "id": "___btn_start_trial" },
+          { "title": "📅 Book Live Demo", "id": "___btn_book_demo" },
+          { "title": "⏰ I'll Try Later", "id": "___btn_try_later" }
+        ]
+      }
+    },
+    {
+      "id": "wait-welcome",
+      "type": "wait_for_reply",
+      "position": { "x": 400, "y": 460 },
+      "name": "Wait for Welcome Reply",
+      "description": "Wait for user to click a button",
+      "parameters": {
+        "variable_name": "welcome_reply"
+      }
+    },
+    {
+      "id": "cond-welcome-reply",
+      "type": "condition",
+      "position": { "x": 400, "y": 540 },
+      "name": "Welcome Reply Branch",
+      "description": "Branch based on which button was clicked",
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond-start-trial",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_start_trial", "Start Free Trial", "start trial"],
+            "sourceHandle": "handle-start-trial"
+          },
+          {
+            "id": "cond-book-demo",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_book_demo", "Book Live Demo", "book demo"],
+            "sourceHandle": "handle-book-demo"
+          },
+          {
+            "id": "cond-try-later",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_try_later", "I'll Try Later", "try later"],
+            "sourceHandle": "handle-try-later"
+          }
+        ],
+        "no_match_handle": "handle-try-later"
+      }
+    },
+
+    {
+      "id": "tag-trial-started",
+      "type": "add_tag",
+      "position": { "x": 100, "y": 640 },
+      "name": "Tag: TRIAL_STARTED",
+      "description": "Mark contact as trial started",
+      "parameters": {
+        "tag_name": "TRIAL_STARTED"
+      }
+    },
+    {
+      "id": "score-trial",
+      "type": "update_lead_score",
+      "position": { "x": 100, "y": 720 },
+      "name": "Score: Trial Started (+100)",
+      "description": "Trial activation score boost",
+      "parameters": {
+        "score_action": "increment",
+        "score_value": 100,
+        "auto_tag": true
+      }
+    },
+    {
+      "id": "tag-hot-lead",
+      "type": "add_tag",
+      "position": { "x": 100, "y": 800 },
+      "name": "Tag: HOT_LEAD",
+      "description": "Mark as hot lead",
+      "parameters": {
+        "tag_name": "HOT_LEAD"
+      }
+    },
+    {
+      "id": "msg-trial-confirm",
+      "type": "send_message",
+      "position": { "x": 100, "y": 880 },
+      "name": "Trial Confirmation",
+      "description": "Send trial activation confirmation",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🎉 Awesome!\n\nYou're just one step away from organizing your insurance business.\n\nClick below to activate your *30-Day FREE Trial.*\n\n✅ No Credit Card Required\n✅ Full Feature Access\n✅ Free Onboarding Support\n\n🚀 Let's get started!",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Activate Now", "id": "___btn_activate_trial" }
+        ]
+      }
+    },
+
+    {
+      "id": "msg-demo-slots",
+      "type": "send_message",
+      "position": { "x": 400, "y": 640 },
+      "name": "Demo Time Slots",
+      "description": "Ask for preferred demo time",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "📅 Great choice!\n\nPlease select your preferred time for a live demo:",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🌅 Morning", "id": "___btn_demo_morning" },
+          { "title": "🌞 Afternoon", "id": "___btn_demo_afternoon" },
+          { "title": "🌙 Evening", "id": "___btn_demo_evening" }
+        ]
+      }
+    },
+    {
+      "id": "wait-demo-slot",
+      "type": "wait_for_reply",
+      "position": { "x": 400, "y": 720 },
+      "name": "Wait for Demo Slot",
+      "description": "Wait for time slot selection",
+      "parameters": {
+        "variable_name": "demo_slot"
+      }
+    },
+    {
+      "id": "tag-booked-demo",
+      "type": "add_tag",
+      "position": { "x": 400, "y": 800 },
+      "name": "Tag: BOOKED_DEMO",
+      "description": "Mark contact as demo booked",
+      "parameters": {
+        "tag_name": "BOOKED_DEMO"
+      }
+    },
+    {
+      "id": "score-demo",
+      "type": "update_lead_score",
+      "position": { "x": 400, "y": 860 },
+      "name": "Score: Demo Booked (+40)",
+      "description": "Demo booking score",
+      "parameters": {
+        "score_action": "increment",
+        "score_value": 40,
+        "auto_tag": true
+      }
+    },
+    {
+      "id": "msg-demo-confirm",
+      "type": "send_message",
+      "position": { "x": 400, "y": 940 },
+      "name": "Demo Confirmation",
+      "description": "Confirm demo booking",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🎉 Thank you!\n\nYour demo request has been received successfully.\n\nOne of our product experts will connect with you during your selected time slot.\n\nWe look forward to helping you grow your insurance business. 🚀"
+      }
+    },
+
+    {
+      "id": "delay-6h",
+      "type": "delay",
+      "position": { "x": 700, "y": 640 },
+      "name": "Wait 6 Hours",
+      "description": "Wait 6 hours before Day 1 message",
+      "parameters": {
+        "delay_value": 6,
+        "delay_unit": "hours"
+      }
+    },
+    {
+      "id": "cond-trial-check-d1",
+      "type": "condition",
+      "position": { "x": 700, "y": 740 },
+      "name": "Trial Started? (Day 1)",
+      "description": "Check if trial already started, skip if yes",
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond-has-trial",
+            "field": "contact.tags",
+            "operator": "has_tag",
+            "value": "TRIAL_STARTED",
+            "sourceHandle": "handle-trial-yes"
+          },
+          {
+            "id": "cond-no-trial",
+            "field": "contact.tags",
+            "operator": "not_has_tag",
+            "value": "TRIAL_STARTED",
+            "sourceHandle": "handle-trial-no"
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "msg-day1",
+      "type": "send_message",
+      "position": { "x": 700, "y": 860 },
+      "name": "Day 1: Pain Awareness",
+      "description": "Create awareness about missed renewals",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "👋 Hi {{contact_name}},\n\nCan I ask you one simple question?\n\n🤔 How many policy renewals do you think you miss every month?\n\nEven missing *2–3 renewals* can cost thousands in commission every year.\n\nInsurance Desk helps you stay on top of every renewal automatically.\n\n👇 Tell us about your business.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "😊 Rarely Miss", "id": "___btn_rarely_miss" },
+          { "title": "😕 Sometimes Miss", "id": "___btn_sometimes_miss" },
+          { "title": "😟 Frequently Miss", "id": "___btn_frequently_miss" }
+        ]
+      }
+    },
+    {
+      "id": "wait-day1",
+      "type": "wait_for_reply",
+      "position": { "x": 700, "y": 960 },
+      "name": "Wait for Day 1 Reply",
+      "description": "Wait for user to select renewal frequency",
+      "parameters": {
+        "variable_name": "renewal_reply"
+      }
+    },
+    {
+      "id": "score-day1",
+      "type": "update_lead_score",
+      "position": { "x": 700, "y": 1040 },
+      "name": "Score: Day 1 Reply (+10)",
+      "description": "Replied to Day 1 question",
+      "parameters": {
+        "score_action": "increment",
+        "score_value": 10,
+        "auto_tag": true
+      }
+    },
+    {
+      "id": "msg-trust",
+      "type": "send_message",
+      "position": { "x": 700, "y": 1120 },
+      "name": "Build Trust Message",
+      "description": "Build trust and offer next actions",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "Thank you! 😊\n\nMost insurance advisors don't lose business because of competition.\n\nThey lose valuable renewals simply because they become difficult to track manually.\n\nInsurance Desk automatically manages renewals, reminders, and client follow-ups—so you can focus on growing your business.\n\n👇 What would you like to do next?",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Free Trial", "id": "___btn_start_trial_d1" },
+          { "title": "📅 Book Live Demo", "id": "___btn_book_demo_d1" },
+          { "title": "🎥 Watch Demo", "id": "___btn_watch_demo_d1" }
+        ]
+      }
+    },
+    {
+      "id": "wait-trust",
+      "type": "wait_for_reply",
+      "position": { "x": 700, "y": 1220 },
+      "name": "Wait for Trust Reply",
+      "description": "Wait for Day 1 CTA reply",
+      "parameters": {
+        "variable_name": "trust_reply"
+      }
+    },
+    {
+      "id": "cond-trust-reply",
+      "type": "condition",
+      "position": { "x": 700, "y": 1300 },
+      "name": "Trust Reply Branch",
+      "description": "Branch based on Day 1 CTA selection",
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond-d1-trial",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_start_trial_d1", "Start Free Trial", "start trial"],
+            "sourceHandle": "handle-d1-trial"
+          },
+          {
+            "id": "cond-d1-demo",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_book_demo_d1", "Book Live Demo", "book demo"],
+            "sourceHandle": "handle-d1-demo"
+          },
+          {
+            "id": "cond-d1-watch",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___btn_watch_demo_d1", "Watch Demo", "watch demo"],
+            "sourceHandle": "handle-d1-watch"
+          }
+        ],
+        "no_match_handle": "handle-d1-watch"
+      }
+    },
+
+    {
+      "id": "msg-watch-demo",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 1400 },
+      "name": "Watch Demo Video",
+      "description": "Send demo video with feature highlights",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "👀 Curious how Insurance Desk works?\n\n🎥 Watch our *3-minute demo* and discover how you can:\n\n✅ Never miss a policy renewal\n🤖 Save time with AI Policy Entry\n📲 Manage all your clients effortlessly\n\n▶️ Watch Now: https://youtube.com/playlist?list=YOUR_PLAYLIST_ID"
+      }
+    },
+    {
+      "id": "tag-watched-demo",
+      "type": "add_tag",
+      "position": { "x": 1000, "y": 1480 },
+      "name": "Tag: WATCHED_DEMO",
+      "description": "Mark as watched demo",
+      "parameters": {
+        "tag_name": "WATCHED_DEMO"
+      }
+    },
+    {
+      "id": "score-watch",
+      "type": "update_lead_score",
+      "position": { "x": 1000, "y": 1540 },
+      "name": "Score: Watched Demo (+15)",
+      "description": "Watched demo video",
+      "parameters": {
+        "score_action": "increment",
+        "score_value": 15,
+        "auto_tag": true
+      }
+    },
+    {
+      "id": "msg-engagement",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 1620 },
+      "name": "Engagement Question",
+      "description": "Ask which feature impressed most",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "😊 We'd love to know...\n\nWhich feature impressed you the most?",
+        "interactive_type": "list",
+        "list_params": {
+          "header": "Features",
+          "body": "😊 We'd love to know...\n\nWhich feature impressed you the most?",
+          "footer": "Select one",
+          "buttonTitle": "Choose Feature",
+          "sectionTitle": "Features",
+          "items": [
+            { "title": "🤖 AI Policy Entry", "id": "___list_ai_interest", "description": "Auto-extract policy details from PDF" },
+            { "title": "🔔 Renewal Reminders", "id": "___list_renewal_interest", "description": "Never miss a renewal date" },
+            { "title": "📱 Customer App", "id": "___list_app_interest", "description": "Policy Setu App for clients" },
+            { "title": "📊 Client Management", "id": "___list_crm_interest", "description": "CRM dashboard for all clients" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wait-engagement",
+      "type": "wait_for_reply",
+      "position": { "x": 1000, "y": 1720 },
+      "name": "Wait for Interest Selection",
+      "description": "Wait for feature interest",
+      "parameters": {
+        "variable_name": "feature_interest"
+      }
+    },
+    {
+      "id": "cond-interest",
+      "type": "condition",
+      "position": { "x": 1000, "y": 1800 },
+      "name": "Interest Branch",
+      "description": "Assign interest tag based on selection",
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond-ai",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___list_ai_interest", "AI Policy Entry", "ai"],
+            "sourceHandle": "handle-ai"
+          },
+          {
+            "id": "cond-renewal",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___list_renewal_interest", "Renewal Reminders", "renewal"],
+            "sourceHandle": "handle-renewal"
+          },
+          {
+            "id": "cond-app",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___list_app_interest", "Customer App", "app"],
+            "sourceHandle": "handle-app"
+          },
+          {
+            "id": "cond-crm",
+            "field": "message",
+            "operator": "contains_any",
+            "value": ["___list_crm_interest", "Client Management", "crm"],
+            "sourceHandle": "handle-crm"
+          }
+        ],
+        "no_match_handle": "handle-ai"
+      }
+    },
+
+    { "id": "tag-ai", "type": "add_tag", "position": { "x": 700, "y": 1900 }, "name": "Tag: AI_INTEREST", "parameters": { "tag_name": "AI_INTEREST" } },
+    { "id": "tag-renewal", "type": "add_tag", "position": { "x": 900, "y": 1900 }, "name": "Tag: RENEWAL_INTEREST", "parameters": { "tag_name": "RENEWAL_INTEREST" } },
+    { "id": "tag-app", "type": "add_tag", "position": { "x": 1100, "y": 1900 }, "name": "Tag: APP_INTEREST", "parameters": { "tag_name": "APP_INTEREST" } },
+    { "id": "tag-crm", "type": "add_tag", "position": { "x": 1300, "y": 1900 }, "name": "Tag: CRM_INTEREST", "parameters": { "tag_name": "CRM_INTEREST" } },
+
+    {
+      "id": "delay-24h-d2",
+      "type": "delay",
+      "position": { "x": 1000, "y": 2000 },
+      "name": "Wait 24 Hours (Day 2)",
+      "description": "Wait until Day 2",
+      "parameters": {
+        "delay_value": 24,
+        "delay_unit": "hours"
+      }
+    },
+    {
+      "id": "cond-trial-check-d2",
+      "type": "condition",
+      "position": { "x": 1000, "y": 2100 },
+      "name": "Trial Started? (Day 2)",
+      "description": "Check if trial already started",
+      "parameters": {
+        "conditions": [
+          { "id": "cond-has-trial-d2", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d2" },
+          { "id": "cond-no-trial-d2", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d2" }
+        ]
+      }
+    },
+    {
+      "id": "cond-d2-personalized",
+      "type": "condition",
+      "position": { "x": 1000, "y": 2200 },
+      "name": "Day 2 Personalization",
+      "description": "Send personalized message based on interest",
+      "parameters": {
+        "conditions": [
+          { "id": "cond-d2-ai", "field": "contact.tags", "operator": "has_tag", "value": "AI_INTEREST", "sourceHandle": "handle-d2-ai" },
+          { "id": "cond-d2-renewal", "field": "contact.tags", "operator": "has_tag", "value": "RENEWAL_INTEREST", "sourceHandle": "handle-d2-renewal" },
+          { "id": "cond-d2-app", "field": "contact.tags", "operator": "has_tag", "value": "APP_INTEREST", "sourceHandle": "handle-d2-app" },
+          { "id": "cond-d2-crm", "field": "contact.tags", "operator": "has_tag", "value": "CRM_INTEREST", "sourceHandle": "handle-d2-crm" }
+        ],
+        "no_match_handle": "handle-d2-ai"
+      }
+    },
+
+    {
+      "id": "msg-d2-ai", "type": "send_message", "position": { "x": 600, "y": 2300 }, "name": "Day 2: AI Interest",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🤖 Did you know?\n\nJust upload your policy PDF and Insurance Desk automatically extracts customer details using AI.\n\nSave hours of manual work every week.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Try AI Now", "id": "___btn_try_ai" },
+          { "title": "🎥 Watch AI Demo", "id": "___btn_ai_demo" },
+          { "title": "📞 Call Me", "id": "___btn_call_ai" }
+        ]
+      }
+    },
+    {
+      "id": "msg-d2-renewal", "type": "send_message", "position": { "x": 850, "y": 2300 }, "name": "Day 2: Renewal Interest",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🔔 Never forget another renewal.\n\nInsurance Desk reminds you before every policy expires so you never miss another renewal opportunity.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Trial", "id": "___btn_trial_renewal" },
+          { "title": "🎥 Reminder Demo", "id": "___btn_renewal_demo" },
+          { "title": "📞 Call Me", "id": "___btn_call_renewal" }
+        ]
+      }
+    },
+    {
+      "id": "msg-d2-app", "type": "send_message", "position": { "x": 1100, "y": 2300 }, "name": "Day 2: App Interest",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "📱 Give your customers a premium experience.\n\nYour clients can access policies, download documents, and contact you anytime using the Policy Setu App.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🎥 Watch App Demo", "id": "___btn_app_demo" },
+          { "title": "🚀 Start Trial", "id": "___btn_trial_app" },
+          { "title": "📞 Book Demo", "id": "___btn_demo_app" }
+        ]
+      }
+    },
+    {
+      "id": "msg-d2-crm", "type": "send_message", "position": { "x": 1350, "y": 2300 }, "name": "Day 2: CRM Interest",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "📊 Manage all your clients from one dashboard.\n\nTrack renewals, commissions, documents, and follow-ups without Excel.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Trial", "id": "___btn_trial_crm" },
+          { "title": "🎥 CRM Demo", "id": "___btn_crm_demo" },
+          { "title": "📞 Talk to Expert", "id": "___btn_expert_crm" }
+        ]
+      }
+    },
+
+    {
+      "id": "delay-24h-d3",
+      "type": "delay",
+      "position": { "x": 1000, "y": 2500 },
+      "name": "Wait 24 Hours (Day 3)",
+      "parameters": { "delay_value": 24, "delay_unit": "hours" }
+    },
+    {
+      "id": "cond-trial-check-d3",
+      "type": "condition",
+      "position": { "x": 1000, "y": 2600 },
+      "name": "Trial Started? (Day 3)",
+      "parameters": {
+        "conditions": [
+          { "id": "cond-has-trial-d3", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d3" },
+          { "id": "cond-no-trial-d3", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d3" }
+        ]
+      }
+    },
+    {
+      "id": "msg-day3",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 2700 },
+      "name": "Day 3: Social Proof",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "⭐ Hundreds of insurance advisors trust Insurance Desk to manage renewals, clients, and policy records more efficiently.\n\nImagine recovering just *2 extra renewals every month.*",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Trial", "id": "___btn_trial_d3" },
+          { "title": "📅 Book Demo", "id": "___btn_demo_d3" },
+          { "title": "🎥 Success Story", "id": "___btn_story_d3" }
+        ]
+      }
+    },
+
+    {
+      "id": "delay-24h-d4",
+      "type": "delay",
+      "position": { "x": 1000, "y": 2900 },
+      "name": "Wait 24 Hours (Day 4)",
+      "parameters": { "delay_value": 24, "delay_unit": "hours" }
+    },
+    {
+      "id": "cond-trial-check-d4",
+      "type": "condition",
+      "position": { "x": 1000, "y": 3000 },
+      "name": "Trial Started? (Day 4)",
+      "parameters": {
+        "conditions": [
+          { "id": "cond-has-trial-d4", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d4" },
+          { "id": "cond-no-trial-d4", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d4" }
+        ]
+      }
+    },
+    {
+      "id": "msg-day4",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 3100 },
+      "name": "Day 4: ROI",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "💰 Let's do a quick calculation.\n\nIf Insurance Desk helps you recover just *2 additional renewals every month*, how much extra commission could that generate in a year?\n\nThat's why insurance advisors choose automation.",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Start Trial", "id": "___btn_trial_d4" },
+          { "title": "📞 Calculate My ROI", "id": "___btn_roi_d4" },
+          { "title": "📅 Demo", "id": "___btn_demo_d4" }
+        ]
+      }
+    },
+
+    {
+      "id": "delay-24h-d5",
+      "type": "delay",
+      "position": { "x": 1000, "y": 3300 },
+      "name": "Wait 24 Hours (Day 5)",
+      "parameters": { "delay_value": 24, "delay_unit": "hours" }
+    },
+    {
+      "id": "cond-trial-check-d5",
+      "type": "condition",
+      "position": { "x": 1000, "y": 3400 },
+      "name": "Trial Started? (Day 5)",
+      "parameters": {
+        "conditions": [
+          { "id": "cond-has-trial-d5", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d5" },
+          { "id": "cond-no-trial-d5", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d5" }
+        ]
+      }
+    },
+    {
+      "id": "msg-day5",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 3500 },
+      "name": "Day 5: Urgency",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "message_template": "🎁 We'd love to help you get started.\n\nActivate your *FREE Trial* today and our onboarding team will personally assist you with setup and importing your initial client data.\n\nReady to grow your insurance business?",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "🚀 Activate Trial", "id": "___btn_activate_d5" },
+          { "title": "📅 Demo", "id": "___btn_demo_d5" },
+          { "title": "📞 Call Me", "id": "___btn_call_d5" }
+        ]
+      }
+    }
+  ],
+
+  "connections": [
+    { "id": "c1", "source": "trigger-meta-lead", "target": "cond-start-welcome", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c2", "source": "cond-start-welcome", "target": "tag-meta-lead", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c3", "source": "tag-meta-lead", "target": "score-welcome", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c4", "source": "score-welcome", "target": "msg-welcome", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c5", "source": "msg-welcome", "target": "wait-welcome", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c6", "source": "wait-welcome", "target": "cond-welcome-reply", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c7", "source": "cond-welcome-reply", "target": "tag-trial-started", "sourceHandle": "handle-start-trial", "targetHandle": "default" },
+    { "id": "c8", "source": "tag-trial-started", "target": "score-trial", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c9", "source": "score-trial", "target": "tag-hot-lead", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c10", "source": "tag-hot-lead", "target": "msg-trial-confirm", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c11", "source": "cond-welcome-reply", "target": "msg-demo-slots", "sourceHandle": "handle-book-demo", "targetHandle": "default" },
+    { "id": "c12", "source": "msg-demo-slots", "target": "wait-demo-slot", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c13", "source": "wait-demo-slot", "target": "tag-booked-demo", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c14", "source": "tag-booked-demo", "target": "score-demo", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c15", "source": "score-demo", "target": "msg-demo-confirm", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c16", "source": "cond-welcome-reply", "target": "delay-6h", "sourceHandle": "handle-try-later", "targetHandle": "default" },
+    { "id": "c17", "source": "delay-6h", "target": "cond-trial-check-d1", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c18", "source": "cond-trial-check-d1", "target": "msg-day1", "sourceHandle": "handle-trial-no", "targetHandle": "default" },
+
+    { "id": "c19", "source": "msg-day1", "target": "wait-day1", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c20", "source": "wait-day1", "target": "score-day1", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c21", "source": "score-day1", "target": "msg-trust", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c22", "source": "msg-trust", "target": "wait-trust", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c23", "source": "wait-trust", "target": "cond-trust-reply", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c24", "source": "cond-trust-reply", "target": "tag-trial-started", "sourceHandle": "handle-d1-trial", "targetHandle": "default" },
+    { "id": "c25", "source": "cond-trust-reply", "target": "msg-demo-slots", "sourceHandle": "handle-d1-demo", "targetHandle": "default" },
+    { "id": "c26", "source": "cond-trust-reply", "target": "msg-watch-demo", "sourceHandle": "handle-d1-watch", "targetHandle": "default" },
+
+    { "id": "c27", "source": "msg-watch-demo", "target": "tag-watched-demo", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c28", "source": "tag-watched-demo", "target": "score-watch", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c29", "source": "score-watch", "target": "msg-engagement", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c30", "source": "msg-engagement", "target": "wait-engagement", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c31", "source": "wait-engagement", "target": "cond-interest", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c32", "source": "cond-interest", "target": "tag-ai", "sourceHandle": "handle-ai", "targetHandle": "default" },
+    { "id": "c33", "source": "cond-interest", "target": "tag-renewal", "sourceHandle": "handle-renewal", "targetHandle": "default" },
+    { "id": "c34", "source": "cond-interest", "target": "tag-app", "sourceHandle": "handle-app", "targetHandle": "default" },
+    { "id": "c35", "source": "cond-interest", "target": "tag-crm", "sourceHandle": "handle-crm", "targetHandle": "default" },
+
+    { "id": "c36", "source": "tag-ai", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c37", "source": "tag-renewal", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c38", "source": "tag-app", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c39", "source": "tag-crm", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c40", "source": "delay-24h-d2", "target": "cond-trial-check-d2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c41", "source": "cond-trial-check-d2", "target": "cond-d2-personalized", "sourceHandle": "handle-trial-no-d2", "targetHandle": "default" },
+
+    { "id": "c42", "source": "cond-d2-personalized", "target": "msg-d2-ai", "sourceHandle": "handle-d2-ai", "targetHandle": "default" },
+    { "id": "c43", "source": "cond-d2-personalized", "target": "msg-d2-renewal", "sourceHandle": "handle-d2-renewal", "targetHandle": "default" },
+    { "id": "c44", "source": "cond-d2-personalized", "target": "msg-d2-app", "sourceHandle": "handle-d2-app", "targetHandle": "default" },
+    { "id": "c45", "source": "cond-d2-personalized", "target": "msg-d2-crm", "sourceHandle": "handle-d2-crm", "targetHandle": "default" },
+
+    { "id": "c46", "source": "msg-d2-ai", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c47", "source": "msg-d2-renewal", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c48", "source": "msg-d2-app", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c49", "source": "msg-d2-crm", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
+
+    { "id": "c50", "source": "delay-24h-d3", "target": "cond-trial-check-d3", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c51", "source": "cond-trial-check-d3", "target": "msg-day3", "sourceHandle": "handle-trial-no-d3", "targetHandle": "default" },
+
+    { "id": "c52", "source": "msg-day3", "target": "delay-24h-d4", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c53", "source": "delay-24h-d4", "target": "cond-trial-check-d4", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c54", "source": "cond-trial-check-d4", "target": "msg-day4", "sourceHandle": "handle-trial-no-d4", "targetHandle": "default" },
+
+    { "id": "c55", "source": "msg-day4", "target": "delay-24h-d5", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c56", "source": "delay-24h-d5", "target": "cond-trial-check-d5", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c57", "source": "cond-trial-check-d5", "target": "msg-day5", "sourceHandle": "handle-trial-no-d5", "targetHandle": "default" }
+  ],
+
+  "settings": {
+    "execution_timeout": 500000,
+    "max_executions": 10000,
+    "error_handling": "continue",
+    "retry_attempts": 3
+  },
+
+  "tags_required": [
+    "META_LEAD", "HOT_LEAD", "WARM_LEAD", "COLD_LEAD",
+    "TRIAL_STARTED", "BOOKED_DEMO", "WATCHED_DEMO",
+    "AI_INTEREST", "RENEWAL_INTEREST", "APP_INTEREST", "CRM_INTEREST",
+    "NO_REPLY"
+  ],
+
+  "lead_scoring": {
+    "rules": [
+      { "action": "Opened Welcome Message", "score": 5 },
+      { "action": "Replied to Day 1 Question", "score": 10 },
+      { "action": "Watched Demo", "score": 15 },
+      { "action": "Clicked Trial Link", "score": 25 },
+      { "action": "Booked Demo", "score": 40 },
+      { "action": "Started Trial", "score": 100 }
+    ],
+    "thresholds": {
+      "HOT_LEAD": 50,
+      "WARM_LEAD": 20,
+      "COLD_LEAD": 0
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { getSheetsClient, getCalendarClient, handleGoogleApiError } from './goog
 import { PROVIDER_TYPES } from '../services/whatsapp/unified-whatsapp.service.js';
 import appointmentService from '../services/appointment.service.js';
 import automationCache from './automation-cache.js';
+import { scheduleDelayedResume, cancelDelayedResume } from '../queues/automation-scheduler-queue.js';
 import { v4 as uuidv4 } from 'uuid';
 
 class AutomationEngine {
@@ -458,7 +459,7 @@ class AutomationEngine {
           result = await this.executeActionNode(node, inputData);
           break;
         case 'delay':
-          result = await this.executeDelayNode(node, inputData);
+          result = await this.executeDelayNode(node, inputData, flow, executionLog);
           break;
         case 'filter':
           result = await this.executeFilterNode(node, inputData);
@@ -508,6 +509,9 @@ class AutomationEngine {
       case 'api':
         result = await this.executeApiNode(node, inputData);
         break;
+      case 'update_lead_score':
+        result = await this.executeUpdateLeadScoreNode(node, inputData);
+        break;
         case 'custom':
           result = await this.executeCustomNode(node, inputData);
           break;
@@ -552,6 +556,13 @@ class AutomationEngine {
     // Bypass 'cond-start-' conditions for ad referrals so the workflow executes properly
     if (inputData.event_type === 'ad_click' && node.id.startsWith('cond-start-')) {
       return { success: true, output: inputData };
+    }
+
+    // Pre-resolve tag names if any condition uses has_tag/not_has_tag
+    const allConditions = Array.isArray(conditions) ? conditions : (condition ? [condition] : []);
+    const needsTagResolution = allConditions.some(c => c.operator === 'has_tag' || c.operator === 'not_has_tag');
+    if (needsTagResolution && !inputData._resolvedTagNames) {
+      await this.resolveTagNamesForContact(inputData);
     }
 
     if (Array.isArray(conditions) && conditions.length > 0) {
@@ -653,6 +664,21 @@ class AutomationEngine {
           return false;
         }
         return value.some(v => strField.includes(String(v).toLowerCase()));
+      case 'has_tag': {
+        // Check if contact has a specific tag by name
+        const tagNames = data._resolvedTagNames;
+        if (tagNames) {
+          return tagNames.some(t => t.toLowerCase() === strValue);
+        }
+        return false;
+      }
+      case 'not_has_tag': {
+        const tagNamesNot = data._resolvedTagNames;
+        if (tagNamesNot) {
+          return !tagNamesNot.some(t => t.toLowerCase() === strValue);
+        }
+        return true;
+      }
       default:
         return true;
     }
@@ -744,14 +770,87 @@ class AutomationEngine {
   }
 
 
-  async executeDelayNode(node, inputData) {
-    const { delay_ms } = node.parameters || { delay_ms: 1000 };
+  async executeDelayNode(node, inputData, flow = null, executionLog = []) {
+    const { delay_ms, delay_value, delay_unit } = node.parameters || { delay_ms: 1000 };
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true, output: inputData });
-      }, delay_ms);
-    });
+    // Calculate delay in milliseconds
+    let totalDelayMs = delay_ms || 1000;
+    if (delay_value && delay_unit) {
+      switch (delay_unit) {
+        case 'seconds': totalDelayMs = delay_value * 1000; break;
+        case 'minutes': totalDelayMs = delay_value * 60 * 1000; break;
+        case 'hours': totalDelayMs = delay_value * 60 * 60 * 1000; break;
+        case 'days': totalDelayMs = delay_value * 24 * 60 * 60 * 1000; break;
+        default: totalDelayMs = delay_value * 1000; break;
+      }
+    }
+
+    // Short delays (< 5 minutes): use in-memory setTimeout
+    const PERSISTENT_DELAY_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+    if (totalDelayMs < PERSISTENT_DELAY_THRESHOLD) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ success: true, output: inputData });
+        }, totalDelayMs);
+      });
+    }
+
+    // Long delays (>= 5 minutes): use BullMQ persistent scheduling
+    if (!flow) {
+      console.warn('[AutomationEngine] No flow context for persistent delay, falling back to setTimeout');
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ success: true, output: inputData });
+        }, Math.min(totalDelayMs, 300000)); // Cap at 5 min for fallback
+      });
+    }
+
+    // Find the next node after this delay
+    const nextNodes = this.getConnectedNodes(flow, node.id);
+    const nextNodeId = nextNodes.length > 0 ? nextNodes[0].id : null;
+
+    const executionId = this.findExecutionIdByLog(executionLog);
+    if (!executionId) {
+      console.error('[AutomationEngine] Could not find execution ID for persistent delay');
+      return { success: false, error: 'Could not find active execution for persistent delay' };
+    }
+
+    try {
+      const resumeAt = new Date(Date.now() + totalDelayMs);
+      const userId = inputData.userId || inputData.user_id;
+
+      const job = await scheduleDelayedResume({
+        executionId: executionId.toString(),
+        flowId: flow._id.toString(),
+        nextNodeId,
+        userId: userId?.toString(),
+        delayMs: totalDelayMs
+      });
+
+      // Update execution to 'waiting' state with scheduled resume info
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: 'waiting',
+        next_node_id: nextNodeId,
+        waiting_for_node_id: node.id,
+        contact_identifier: inputData.senderNumber,
+        input_data: inputData,
+        scheduled_resume_at: resumeAt,
+        delay_job_id: job.id
+      });
+
+      const delayHours = Math.round(totalDelayMs / 3600000);
+      console.log(`[AutomationEngine] Persistent delay scheduled: ${delayHours}h. Execution ${executionId} waiting until ${resumeAt.toISOString()}`);
+
+      return { success: true, status: 'waiting', output: inputData };
+    } catch (error) {
+      console.error('[AutomationEngine] Failed to schedule persistent delay:', error.message);
+      // Fallback to in-memory delay (capped at 5 min)
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ success: true, output: inputData });
+        }, Math.min(totalDelayMs, 300000));
+      });
+    }
   }
 
 
@@ -1444,6 +1543,234 @@ class AutomationEngine {
       success: true,
       output: { ...inputData, custom_executed: true }
     };
+  }
+
+
+  async executeUpdateLeadScoreNode(node, inputData) {
+    const { score_action = 'increment', score_value = 0, auto_tag = true } = node.parameters || {};
+    const contactId = inputData.contactId || inputData.contact?._id;
+    const userId = inputData.userId || inputData.user_id;
+
+    if (!contactId) {
+      return { success: false, output: inputData, error: 'contactId is required for lead scoring' };
+    }
+    if (!userId) {
+      return { success: false, output: inputData, error: 'userId is required for lead scoring' };
+    }
+
+    try {
+      let updateOp;
+      if (score_action === 'set') {
+        updateOp = { $set: { 'custom_fields.lead_score': score_value } };
+      } else {
+        // increment (default)
+        updateOp = { $inc: { 'custom_fields.lead_score': score_value } };
+      }
+
+      await Contact.updateOne(
+        { _id: contactId, created_by: userId, deleted_at: null },
+        updateOp
+      );
+
+      // Fetch updated contact to get new score
+      const updatedContact = await Contact.findOne({
+        _id: contactId,
+        created_by: userId,
+        deleted_at: null
+      }).lean();
+
+      const newScore = updatedContact?.custom_fields?.get?.('lead_score')
+        || updatedContact?.custom_fields?.lead_score
+        || 0;
+
+      console.log(`[update_lead_score] Contact ${contactId}: score ${score_action === 'set' ? '=' : '+'}${score_value} → total ${newScore}`);
+
+      // Auto-assign dynamic lead tags based on score thresholds
+      if (auto_tag) {
+        let tagName;
+        if (newScore >= 50) {
+          tagName = 'HOT_LEAD';
+        } else if (newScore >= 20) {
+          tagName = 'WARM_LEAD';
+        } else {
+          tagName = 'COLD_LEAD';
+        }
+
+        // Remove old lead tier tags, add new one
+        const leadTierTags = ['HOT_LEAD', 'WARM_LEAD', 'COLD_LEAD'];
+        for (const oldTag of leadTierTags) {
+          if (oldTag !== tagName) {
+            const existingTag = await Tag.findOne({ label: oldTag, created_by: userId, deleted_at: null });
+            if (existingTag) {
+              await Contact.findByIdAndUpdate(contactId, { $pull: { tags: existingTag._id } });
+            }
+          }
+        }
+
+        // Add the correct tier tag
+        await this.executeAddTagNode(
+          { parameters: { tag_name: tagName } },
+          { ...inputData, contactId, userId }
+        );
+
+        console.log(`[update_lead_score] Auto-tagged contact ${contactId} as ${tagName} (score: ${newScore})`);
+      }
+
+      return {
+        success: true,
+        output: {
+          ...inputData,
+          contact: updatedContact,
+          lead_score: newScore,
+          lead_score_action: score_action,
+          lead_score_change: score_value
+        }
+      };
+    } catch (error) {
+      console.error('[update_lead_score] Error:', error);
+      return { success: false, output: inputData, error: error.message };
+    }
+  }
+
+
+  /**
+   * Resume an automation execution after a persistent delay.
+   * Called by the automation-scheduler-queue worker.
+   */
+  async resumeFromDelay(executionId, flowId, nextNodeId, userId) {
+    console.log(`[AutomationEngine] Resuming from delay: execution=${executionId}, flow=${flowId}, nextNode=${nextNodeId}`);
+
+    try {
+      const execution = await AutomationExecution.findById(executionId);
+      if (!execution) {
+        console.error(`[AutomationEngine] Execution ${executionId} not found`);
+        return;
+      }
+
+      // Skip if execution was already completed/cancelled (e.g., user started trial)
+      if (['success', 'failed', 'cancelled'].includes(execution.status)) {
+        console.log(`[AutomationEngine] Execution ${executionId} already ${execution.status}. Skipping delay resume.`);
+        return;
+      }
+
+      const flow = await AutomationFlow.findById(flowId).populate('user_id');
+      if (!flow || !flow.is_active || flow.deleted_at) {
+        console.log(`[AutomationEngine] Flow ${flowId} is inactive or deleted. Skipping delay resume.`);
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'cancelled',
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const inputData = execution.input_data || {};
+
+      // Pre-resolve contact tags for has_tag conditions
+      if (inputData.contactId) {
+        try {
+          const contact = await Contact.findById(inputData.contactId).populate('tags', 'label').lean();
+          if (contact) {
+            inputData.contact = contact;
+            inputData._resolvedTagNames = (contact.tags || []).map(t => t.label || t);
+          }
+        } catch (e) {
+          console.warn('[AutomationEngine] Could not refresh contact data:', e.message);
+        }
+      }
+
+      // Update execution status
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: 'running',
+        scheduled_resume_at: null,
+        delay_job_id: null
+      });
+
+      if (!nextNodeId) {
+        console.log('[AutomationEngine] No next node after delay. Completing execution.');
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'success',
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const nextNode = flow.nodes.find(n => n.id === nextNodeId);
+      if (!nextNode) {
+        console.error(`[AutomationEngine] Next node ${nextNodeId} not found in flow`);
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'failed',
+          error: `Node ${nextNodeId} not found`,
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const executionLog = execution.execution_log || [];
+      const execUuid = uuidv4();
+      this.runningExecutions.set(execUuid, execution._id);
+
+      const startTime = Date.now();
+      const nodeResult = await this.executeNode(nextNode, flow, inputData, executionLog);
+
+      if (nodeResult.status === 'waiting') {
+        this.runningExecutions.delete(execUuid);
+        return;
+      }
+
+      if (nodeResult.success) {
+        const updatedData = { ...inputData, ...nodeResult.output };
+        const connResult = await this.processConnectedNodes(flow, nextNode, updatedData, executionLog, inputData);
+        if (connResult && connResult.status === 'waiting') {
+          this.runningExecutions.delete(execUuid);
+          return;
+        }
+      }
+
+      const resultStatus = nodeResult.success ? 'success' : 'failed';
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: resultStatus,
+        output_data: inputData,
+        execution_time: Date.now() - startTime,
+        completed_at: new Date(),
+        execution_log: executionLog
+      });
+
+      await this.updateFlowStatistics(flow._id, nodeResult.success);
+      this.runningExecutions.delete(execUuid);
+
+      console.log(`[AutomationEngine] Delay resume completed for execution ${executionId}`);
+    } catch (error) {
+      console.error(`[AutomationEngine] Error resuming from delay:`, error);
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: 'failed',
+        error: error.message,
+        completed_at: new Date()
+      });
+    }
+  }
+
+
+  /**
+   * Pre-resolve tag names for a contact before evaluating conditions.
+   * This allows has_tag/not_has_tag operators to work.
+   */
+  async resolveTagNamesForContact(inputData) {
+    if (inputData._resolvedTagNames) return inputData;
+
+    const contactId = inputData.contactId || inputData.contact?._id;
+    if (!contactId) return inputData;
+
+    try {
+      const contact = await Contact.findById(contactId).populate('tags', 'label').lean();
+      if (contact && contact.tags) {
+        inputData._resolvedTagNames = contact.tags.map(t => t.label || t);
+        inputData.contact = contact;
+      }
+    } catch (e) {
+      console.warn('[AutomationEngine] Could not resolve tag names:', e.message);
+    }
+
+    return inputData;
   }
 
 
