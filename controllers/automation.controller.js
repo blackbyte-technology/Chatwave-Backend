@@ -197,6 +197,18 @@ export const updateAutomationFlow = async (req, res) => {
     if (settings !== undefined) flow.settings = settings;
     if (is_active !== undefined) flow.is_active = is_active;
 
+    // Auto-generate missing connection IDs to prevent validation errors
+    if (Array.isArray(flow.connections)) {
+      flow.connections = flow.connections.map((c, i) => {
+        if (!c.id) {
+          c.id = `c-${c.source}-${c.target}-${Date.now()}-${i}`.substring(0, 80);
+        }
+        if (!c.sourceHandle) c.sourceHandle = 'src';
+        if (!c.targetHandle) c.targetHandle = 'tgt';
+        return c;
+      });
+    }
+
     await flow.save();
 
     automationCache.invalidateFlowCache(flowId, userId);
@@ -275,6 +287,20 @@ export const toggleAutomationFlow = async (req, res) => {
     }
 
     flow.is_active = is_active;
+
+    // Auto-generate missing connection IDs to prevent validation errors
+    if (Array.isArray(flow.connections)) {
+      flow.connections = flow.connections.map((c, i) => {
+        if (!c.id) {
+          c.id = `c-${c.source}-${c.target}-${Date.now()}-${i}`.substring(0, 80);
+        }
+        if (!c.sourceHandle) c.sourceHandle = 'src';
+        if (!c.targetHandle) c.targetHandle = 'tgt';
+        return c;
+      });
+      flow.markModified('connections');
+    }
+
     await flow.save();
 
     automationCache.invalidateFlowCache(flowId, userId);
