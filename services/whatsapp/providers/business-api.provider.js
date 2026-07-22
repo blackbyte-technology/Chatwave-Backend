@@ -347,21 +347,56 @@ export default class BusinessAPIProvider extends BaseProvider {
 
     let contact = null;
     if (!params.fromCampaignSystem) {
+      // First try to find an active contact
       contact = await Contact.findOne({
         phone_number: recipientNumber,
-        created_by: userId,
+        $or: [{ created_by: userId }, { user_id: userId }],
         deleted_at: null
       });
 
+      // If not found, check for soft-deleted contact and restore it
       if (!contact) {
-        contact = await Contact.create({
-          phone_number: recipientNumber,
-          name: recipientNumber,
-          source: 'whatsapp',
-          user_id: userId,
-          created_by: userId,
-          status: 'lead'
-        });
+        contact = await Contact.findOneAndUpdate(
+          {
+            phone_number: recipientNumber,
+            $or: [{ created_by: userId }, { user_id: userId }],
+            deleted_at: { $ne: null }
+          },
+          { $set: { deleted_at: null } },
+          { new: true }
+        );
+        if (contact) {
+          console.log(`[BusinessAPI] Restored soft-deleted contact: ${recipientNumber}`);
+        }
+      }
+
+      // If still not found, create a new contact
+      if (!contact) {
+        try {
+          contact = await Contact.create({
+            phone_number: recipientNumber,
+            name: recipientNumber,
+            source: 'whatsapp',
+            user_id: userId,
+            created_by: userId,
+            status: 'lead'
+          });
+        } catch (err) {
+          // Handle duplicate key error (race condition)
+          if (err.code === 11000) {
+            contact = await Contact.findOne({
+              phone_number: recipientNumber,
+              $or: [{ created_by: userId }, { user_id: userId }]
+            });
+            if (contact && contact.deleted_at) {
+              contact.deleted_at = null;
+              await contact.save();
+              console.log(`[BusinessAPI] Restored contact after race condition: ${recipientNumber}`);
+            }
+          } else {
+            throw err;
+          }
+        }
       }
     } else {
       contact = { _id: params.contactId || null };
