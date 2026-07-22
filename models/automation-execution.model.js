@@ -68,6 +68,12 @@ const automationExecutionSchema = new mongoose.Schema({
   delay_job_id: {
     type: String,
     default: null
+  },
+  // BullMQ job id for a pending wait_for_reply timeout. Cancelled when a reply
+  // arrives so the timeout branch does not fire after a successful reply.
+  reply_timeout_job_id: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

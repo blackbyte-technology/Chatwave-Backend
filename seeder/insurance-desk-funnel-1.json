@@ -1,783 +1,1116 @@
 {
   "name": "Insurance Desk – Funnel 1 (Meta Lead → Trial Activation)",
-  "description": "5-day WhatsApp automation funnel for converting Meta ad leads to Insurance Desk trial activations. Includes micro-conversation strategy, lead scoring, interest-based personalization, and urgency-driven CTAs.",
+  "description": "5-day WhatsApp automation funnel — faithful build of Insurance-Desk-Funnel1-BUILD-SPEC.md. Day 0 entry through Day 5 final offer, all 3 Day-1 branches, Day-1B no-reply nudge, interest personalization, objection handling, tag-triggered lead scoring, and hot/warm/cold grading. Environment-specific values are wrapped in __DOUBLE_UNDERSCORES__ and must be replaced before going live.",
   "is_active": true,
   "triggers": [
-    {
-      "event_type": "message_received",
-      "conditions": {}
-    }
+    { "event_type": "message_received", "conditions": {} }
   ],
+
+  "lead_scoring_rules": {
+    "PAIN_ACKNOWLEDGED": 10,
+    "WATCHED_DEMO": 15,
+    "AI_INTEREST": 10,
+    "RENEWAL_INTEREST": 10,
+    "APP_INTEREST": 10,
+    "CRM_INTEREST": 10,
+    "BOOKED_DEMO": 30,
+    "OBJECTION_COST": 10,
+    "OBJECTION_TIME": 10,
+    "OBJECTION_VALUE": 10
+  },
+
   "nodes": [
     {
-      "id": "trigger-meta-lead",
+      "id": "trigger-entry",
       "type": "trigger",
-      "position": { "x": 400, "y": 0 },
-      "name": "Meta Lead Entry",
-      "description": "Triggered when a lead messages from Meta ad",
-      "parameters": {}
-    },
-    {
-      "id": "cond-start-welcome",
-      "type": "condition",
-      "position": { "x": 400, "y": 100 },
-      "name": "Start Condition",
-      "description": "Match any incoming message to start funnel",
-      "parameters": {
-        "condition": {
-          "field": "message",
-          "operator": "is_not_empty",
-          "value": ""
-        }
-      }
-    },
-    {
-      "id": "tag-meta-lead",
-      "type": "add_tag",
-      "position": { "x": 400, "y": 200 },
-      "name": "Assign META_LEAD Tag",
-      "description": "Tag contact as META_LEAD",
-      "parameters": {
-        "tag_name": "META_LEAD"
-      }
-    },
-    {
-      "id": "score-welcome",
-      "type": "update_lead_score",
-      "position": { "x": 400, "y": 280 },
-      "name": "Score: Welcome (+5)",
-      "description": "Opened welcome message",
-      "parameters": {
-        "score_action": "increment",
-        "score_value": 5,
-        "auto_tag": true
-      }
-    },
-    {
-      "id": "msg-welcome",
-      "type": "send_message",
-      "position": { "x": 400, "y": 360 },
-      "name": "Welcome Message",
-      "description": "Send welcome message with 3 quick reply buttons",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🎉 Welcome to *Insurance Desk!*\n\nGrow your insurance business with our *30-Day FREE Trial.*\n\n✅ No Credit Card Required\n✅ Full Feature Access\n✅ Free Onboarding Support\n\n🎥 Watch Demo Video\n\n👇 Choose what you'd like to do.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Free Trial", "id": "___btn_start_trial" },
-          { "title": "📅 Book Live Demo", "id": "___btn_book_demo" },
-          { "title": "⏰ I'll Try Later", "id": "___btn_try_later" }
-        ]
-      }
-    },
-    {
-      "id": "wait-welcome",
-      "type": "wait_for_reply",
-      "position": { "x": 400, "y": 460 },
-      "name": "Wait for Welcome Reply",
-      "description": "Wait for user to click a button",
-      "parameters": {
-        "variable_name": "welcome_reply"
-      }
-    },
-    {
-      "id": "cond-welcome-reply",
-      "type": "condition",
-      "position": { "x": 400, "y": 540 },
-      "name": "Welcome Reply Branch",
-      "description": "Branch based on which button was clicked",
-      "parameters": {
-        "conditions": [
-          {
-            "id": "cond-start-trial",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_start_trial", "Start Free Trial", "start trial"],
-            "sourceHandle": "handle-start-trial"
-          },
-          {
-            "id": "cond-book-demo",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_book_demo", "Book Live Demo", "book demo"],
-            "sourceHandle": "handle-book-demo"
-          },
-          {
-            "id": "cond-try-later",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_try_later", "I'll Try Later", "try later"],
-            "sourceHandle": "handle-try-later"
-          }
-        ],
-        "no_match_handle": "handle-try-later"
-      }
+      "position": { "x": 600, "y": 0 },
+      "name": "Automation Entry",
+      "description": "Spec step 1 — Trigger: New Meta Lead Form / First Message",
+      "parameters": { "event_type": "message_received", "triggerType": "any message", "keywords": [] }
     },
 
+    { "id": "tag-meta-lead", "type": "add_tag", "position": { "x": 600, "y": 140 }, "name": "Assign Tag → META_LEAD", "description": "Spec step 2", "parameters": { "nodeType": "add_tag", "tag_name": "META_LEAD" } },
+    { "id": "tag-stage-day0", "type": "add_tag", "position": { "x": 600, "y": 280 }, "name": "Assign Tag → STAGE_DAY0", "description": "Spec step 3", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY0" } },
+
     {
-      "id": "tag-trial-started",
-      "type": "add_tag",
-      "position": { "x": 100, "y": 640 },
-      "name": "Tag: TRIAL_STARTED",
-      "description": "Mark contact as trial started",
+      "id": "save-lead-capture",
+      "type": "response_saver",
+      "position": { "x": 600, "y": 420 },
+      "name": "Save Response → Lead Capture",
+      "description": "Spec step 4 — capture: Name, Phone, Meta Campaign ID, Lead Time",
       "parameters": {
-        "tag_name": "TRIAL_STARTED"
-      }
-    },
-    {
-      "id": "score-trial",
-      "type": "update_lead_score",
-      "position": { "x": 100, "y": 720 },
-      "name": "Score: Trial Started (+100)",
-      "description": "Trial activation score boost",
-      "parameters": {
-        "score_action": "increment",
-        "score_value": 100,
-        "auto_tag": true
-      }
-    },
-    {
-      "id": "tag-hot-lead",
-      "type": "add_tag",
-      "position": { "x": 100, "y": 800 },
-      "name": "Tag: HOT_LEAD",
-      "description": "Mark as hot lead",
-      "parameters": {
-        "tag_name": "HOT_LEAD"
-      }
-    },
-    {
-      "id": "msg-trial-confirm",
-      "type": "send_message",
-      "position": { "x": 100, "y": 880 },
-      "name": "Trial Confirmation",
-      "description": "Send trial activation confirmation",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🎉 Awesome!\n\nYou're just one step away from organizing your insurance business.\n\nClick below to activate your *30-Day FREE Trial.*\n\n✅ No Credit Card Required\n✅ Full Feature Access\n✅ Free Onboarding Support\n\n🚀 Let's get started!",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Activate Now", "id": "___btn_activate_trial" }
+        "nodeType": "response_saver",
+        "mappings": [
+          { "source_path": "contact.name", "variable_name": "Name", "custom_field_key": "Name" },
+          { "source_path": "senderNumber", "variable_name": "Phone", "custom_field_key": "Phone" },
+          { "source_path": "contact.custom_fields.meta_campaign_id", "variable_name": "meta_campaign_id", "custom_field_key": "meta_campaign_id" },
+          { "source_path": "timestamp", "variable_name": "lead_time", "custom_field_key": "lead_time" }
         ]
       }
     },
 
     {
-      "id": "msg-demo-slots",
-      "type": "send_message",
-      "position": { "x": 400, "y": 640 },
-      "name": "Demo Time Slots",
-      "description": "Ask for preferred demo time",
+      "id": "sheet-add-row",
+      "type": "save_to_google_sheet",
+      "position": { "x": 600, "y": 560 },
+      "name": "Google Sheets → Add Row",
+      "description": "Spec step 5 — Columns: Name | Phone | Source | Date | Stage=Day0. Upsert-by-Phone prevents duplicate lead rows.",
       "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "📅 Great choice!\n\nPlease select your preferred time for a live demo:",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🌅 Morning", "id": "___btn_demo_morning" },
-          { "title": "🌞 Afternoon", "id": "___btn_demo_afternoon" },
-          { "title": "🌙 Evening", "id": "___btn_demo_evening" }
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "upsert",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "headers": ["Name", "Phone", "Source", "Date", "Stage", "Slot", "Rep", "Trial ID", "Lead Score", "Lead Grade"],
+        "column_mappings": [
+          { "column": "Name", "value": "{{Name}}" },
+          { "column": "Phone", "value": "{{senderNumber}}" },
+          { "column": "Source", "value": "Meta Lead" },
+          { "column": "Date", "value": "{{lead_time}}" },
+          { "column": "Stage", "value": "Day0" }
         ]
-      }
-    },
-    {
-      "id": "wait-demo-slot",
-      "type": "wait_for_reply",
-      "position": { "x": 400, "y": 720 },
-      "name": "Wait for Demo Slot",
-      "description": "Wait for time slot selection",
-      "parameters": {
-        "variable_name": "demo_slot"
-      }
-    },
-    {
-      "id": "tag-booked-demo",
-      "type": "add_tag",
-      "position": { "x": 400, "y": 800 },
-      "name": "Tag: BOOKED_DEMO",
-      "description": "Mark contact as demo booked",
-      "parameters": {
-        "tag_name": "BOOKED_DEMO"
-      }
-    },
-    {
-      "id": "score-demo",
-      "type": "update_lead_score",
-      "position": { "x": 400, "y": 860 },
-      "name": "Score: Demo Booked (+40)",
-      "description": "Demo booking score",
-      "parameters": {
-        "score_action": "increment",
-        "score_value": 40,
-        "auto_tag": true
-      }
-    },
-    {
-      "id": "msg-demo-confirm",
-      "type": "send_message",
-      "position": { "x": 400, "y": 940 },
-      "name": "Demo Confirmation",
-      "description": "Confirm demo booking",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🎉 Thank you!\n\nYour demo request has been received successfully.\n\nOne of our product experts will connect with you during your selected time slot.\n\nWe look forward to helping you grow your insurance business. 🚀"
       }
     },
 
     {
-      "id": "delay-6h",
+      "id": "tpl-welcome",
+      "type": "send_template",
+      "position": { "x": 600, "y": 700 },
+      "name": "Send Template → welcome_template",
+      "description": "Spec step 6",
+      "parameters": {
+        "nodeType": "send_template",
+        "recipient": "{{senderNumber}}",
+        "template_name": "welcome_template",
+        "language_code": "en_US",
+        "body_variables": { "1": "{{Name}}" }
+      }
+    },
+
+    {
+      "id": "media-demo-short",
+      "type": "send_message",
+      "position": { "x": 600, "y": 840 },
+      "name": "Attach Media → demo_video_short.mp4",
+      "description": "Spec step 7",
+      "parameters": {
+        "nodeType": "media_message",
+        "recipient": "{{senderNumber}}",
+        "media_url": "__MEDIA_BASE_URL__/demo_video_short.mp4"
+      }
+    },
+
+    {
+      "id": "cta-day0-trial",
+      "type": "cta_button",
+      "position": { "x": 600, "y": 980 },
+      "name": "Call to Action → Start Free Trial",
+      "description": "Spec step 8 — Button: Start Free Trial, Link: trial signup URL",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "text": "Ready when you are — start your free trial in under a minute. 👇",
+        "button_text": "Start Free Trial",
+        "url": "https://insurancedesk.co.in/free-trial"
+      }
+    },
+
+    {
+      "id": "delay-day0-6h",
       "type": "delay",
-      "position": { "x": 700, "y": 640 },
-      "name": "Wait 6 Hours",
-      "description": "Wait 6 hours before Day 1 message",
-      "parameters": {
-        "delay_value": 6,
-        "delay_unit": "hours"
-      }
-    },
-    {
-      "id": "cond-trial-check-d1",
-      "type": "condition",
-      "position": { "x": 700, "y": 740 },
-      "name": "Trial Started? (Day 1)",
-      "description": "Check if trial already started, skip if yes",
-      "parameters": {
-        "conditions": [
-          {
-            "id": "cond-has-trial",
-            "field": "contact.tags",
-            "operator": "has_tag",
-            "value": "TRIAL_STARTED",
-            "sourceHandle": "handle-trial-yes"
-          },
-          {
-            "id": "cond-no-trial",
-            "field": "contact.tags",
-            "operator": "not_has_tag",
-            "value": "TRIAL_STARTED",
-            "sourceHandle": "handle-trial-no"
-          }
-        ]
-      }
+      "position": { "x": 600, "y": 1120 },
+      "name": "Wait Timer → 6 hours",
+      "description": "Spec step 9",
+      "parameters": { "nodeType": "delay", "delay_ms": 21600000, "delay_value": 6, "delay_unit": "hours" }
     },
 
     {
-      "id": "msg-day1",
-      "type": "send_message",
-      "position": { "x": 700, "y": 860 },
-      "name": "Day 1: Pain Awareness",
-      "description": "Create awareness about missed renewals",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "👋 Hi {{contact_name}},\n\nCan I ask you one simple question?\n\n🤔 How many policy renewals do you think you miss every month?\n\nEven missing *2–3 renewals* can cost thousands in commission every year.\n\nInsurance Desk helps you stay on top of every renewal automatically.\n\n👇 Tell us about your business.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "😊 Rarely Miss", "id": "___btn_rarely_miss" },
-          { "title": "😕 Sometimes Miss", "id": "___btn_sometimes_miss" },
-          { "title": "😟 Frequently Miss", "id": "___btn_frequently_miss" }
-        ]
-      }
-    },
-    {
-      "id": "wait-day1",
-      "type": "wait_for_reply",
-      "position": { "x": 700, "y": 960 },
-      "name": "Wait for Day 1 Reply",
-      "description": "Wait for user to select renewal frequency",
-      "parameters": {
-        "variable_name": "renewal_reply"
-      }
-    },
-    {
-      "id": "score-day1",
-      "type": "update_lead_score",
-      "position": { "x": 700, "y": 1040 },
-      "name": "Score: Day 1 Reply (+10)",
-      "description": "Replied to Day 1 question",
-      "parameters": {
-        "score_action": "increment",
-        "score_value": 10,
-        "auto_tag": true
-      }
-    },
-    {
-      "id": "msg-trust",
-      "type": "send_message",
-      "position": { "x": 700, "y": 1120 },
-      "name": "Build Trust Message",
-      "description": "Build trust and offer next actions",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "Thank you! 😊\n\nMost insurance advisors don't lose business because of competition.\n\nThey lose valuable renewals simply because they become difficult to track manually.\n\nInsurance Desk automatically manages renewals, reminders, and client follow-ups—so you can focus on growing your business.\n\n👇 What would you like to do next?",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Free Trial", "id": "___btn_start_trial_d1" },
-          { "title": "📅 Book Live Demo", "id": "___btn_book_demo_d1" },
-          { "title": "🎥 Watch Demo", "id": "___btn_watch_demo_d1" }
-        ]
-      }
-    },
-    {
-      "id": "wait-trust",
-      "type": "wait_for_reply",
-      "position": { "x": 700, "y": 1220 },
-      "name": "Wait for Trust Reply",
-      "description": "Wait for Day 1 CTA reply",
-      "parameters": {
-        "variable_name": "trust_reply"
-      }
-    },
-    {
-      "id": "cond-trust-reply",
+      "id": "exit-check-day0",
       "type": "condition",
-      "position": { "x": 700, "y": 1300 },
-      "name": "Trust Reply Branch",
-      "description": "Branch based on Day 1 CTA selection",
+      "position": { "x": 600, "y": 1260 },
+      "name": "EXIT CHECK (Day 0)",
+      "description": "Spec step 10 — reusable EXIT CHECK",
       "parameters": {
+        "nodeType": "condition",
         "conditions": [
-          {
-            "id": "cond-d1-trial",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_start_trial_d1", "Start Free Trial", "start trial"],
-            "sourceHandle": "handle-d1-trial"
-          },
-          {
-            "id": "cond-d1-demo",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_book_demo_d1", "Book Live Demo", "book demo"],
-            "sourceHandle": "handle-d1-demo"
-          },
-          {
-            "id": "cond-d1-watch",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___btn_watch_demo_d1", "Watch Demo", "watch demo"],
-            "sourceHandle": "handle-d1-watch"
-          }
+          { "id": "ec0-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-exit" },
+          { "id": "ec0-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-exit" },
+          { "id": "ec0-sales", "field": "contact.tags", "operator": "has_tag", "value": "SALES_OWNED", "sourceHandle": "handle-exit" }
         ],
-        "no_match_handle": "handle-d1-watch"
+        "no_match_handle": "handle-continue"
       }
     },
 
+    { "id": "tag-stage-day1", "type": "add_tag", "position": { "x": 600, "y": 1400 }, "name": "Assign Tag → STAGE_DAY1", "description": "Spec step 11", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY1" } },
+
     {
-      "id": "msg-watch-demo",
+      "id": "media-pain-awareness",
       "type": "send_message",
-      "position": { "x": 1000, "y": 1400 },
-      "name": "Watch Demo Video",
-      "description": "Send demo video with feature highlights",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "👀 Curious how Insurance Desk works?\n\n🎥 Watch our *3-minute demo* and discover how you can:\n\n✅ Never miss a policy renewal\n🤖 Save time with AI Policy Entry\n📲 Manage all your clients effortlessly\n\n▶️ Watch Now: https://youtube.com/playlist?list=YOUR_PLAYLIST_ID"
-      }
+      "position": { "x": 600, "y": 1540 },
+      "name": "Attach Media → pain_awareness_image.jpg",
+      "description": "Spec step 12",
+      "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/pain_awareness_image.jpg" }
     },
     {
-      "id": "tag-watched-demo",
-      "type": "add_tag",
-      "position": { "x": 1000, "y": 1480 },
-      "name": "Tag: WATCHED_DEMO",
-      "description": "Mark as watched demo",
-      "parameters": {
-        "tag_name": "WATCHED_DEMO"
-      }
-    },
-    {
-      "id": "score-watch",
-      "type": "update_lead_score",
-      "position": { "x": 1000, "y": 1540 },
-      "name": "Score: Watched Demo (+15)",
-      "description": "Watched demo video",
-      "parameters": {
-        "score_action": "increment",
-        "score_value": 15,
-        "auto_tag": true
-      }
-    },
-    {
-      "id": "msg-engagement",
+      "id": "msg-day1-pain",
       "type": "send_message",
-      "position": { "x": 1000, "y": 1620 },
-      "name": "Engagement Question",
-      "description": "Ask which feature impressed most",
+      "position": { "x": 600, "y": 1680 },
+      "name": "Send Message → Day 1 Pain Awareness",
+      "description": "Spec step 13",
       "parameters": {
+        "nodeType": "text_message",
         "recipient": "{{senderNumber}}",
-        "message_template": "😊 We'd love to know...\n\nWhich feature impressed you the most?",
+        "message_template": "Hi {{Name}}, can I ask you one simple question?\nHow many policy renewals do you think you miss every month?\nEven missing just a few can cost thousands in commission every year. Insurance Desk tracks every renewal automatically. 👇\nTell us about your business."
+      }
+    },
+    {
+      "id": "qr-day1-pain",
+      "type": "send_message",
+      "position": { "x": 600, "y": 1820 },
+      "name": "Quick Reply → Pain Level",
+      "description": "Spec step 14 — 3 buttons: Rarely Miss | Sometimes Miss | Frequently Miss",
+      "parameters": {
+        "nodeType": "button_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👇 Pick the one that fits you best:",
+        "messageType": "interactive",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "😊 Rarely Miss", "id": "Rarely Miss" },
+          { "title": "😕 Sometimes Miss", "id": "Sometimes Miss" },
+          { "title": "😟 Frequently Miss", "id": "Frequently Miss" }
+        ]
+      }
+    },
+    {
+      "id": "wait-day1-pain",
+      "type": "wait_for_reply",
+      "position": { "x": 600, "y": 1960 },
+      "name": "Wait for Reply → Pain (timeout 12h)",
+      "description": "Spec step 15 — timeout 12 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "pain_reply", "timeout_value": 12, "timeout_unit": "hours", "timeout_ms": 43200000 }
+    },
+    {
+      "id": "cond-day1-pain-noreply",
+      "type": "condition",
+      "position": { "x": 600, "y": 2100 },
+      "name": "Logic Control → Pain No Reply (12h)?",
+      "description": "Spec step 16 — YES(no reply)→Day1B, NO→continue",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "d1pain-timeout", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-noreply" }
+        ],
+        "no_match_handle": "handle-continue"
+      }
+    },
+    {
+      "id": "save-pain-level",
+      "type": "response_saver",
+      "position": { "x": 600, "y": 2240 },
+      "name": "Save Response → pain_level",
+      "description": "Spec step 17",
+      "parameters": { "nodeType": "response_saver", "mappings": [ { "source_path": "pain_reply", "variable_name": "pain_level", "custom_field_key": "pain_level" } ] }
+    },
+    { "id": "tag-pain-ack", "type": "add_tag", "position": { "x": 600, "y": 2380 }, "name": "Assign Tag → PAIN_ACKNOWLEDGED", "description": "Spec step 18 (side-trigger lead_score +10)", "parameters": { "nodeType": "add_tag", "tag_name": "PAIN_ACKNOWLEDGED" } },
+    {
+      "id": "msg-day1-next",
+      "type": "send_message",
+      "position": { "x": 600, "y": 2520 },
+      "name": "Send Message → What next",
+      "description": "Spec step 19",
+      "parameters": {
+        "nodeType": "text_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "Thank you. Most insurance advisors don't lose business to competition — they lose it because renewals are forgotten. Insurance Desk helps you organize customers and automate renewals. What would you like to do next?"
+      }
+    },
+    {
+      "id": "sel-day1-next",
+      "type": "send_message",
+      "position": { "x": 600, "y": 2660 },
+      "name": "Selection List → Next Action",
+      "description": "Spec step 20 — Start Free Trial | Book Live Demo | Watch Demo",
+      "parameters": {
+        "nodeType": "list_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👇 What would you like to do next?",
+        "messageType": "interactive",
         "interactive_type": "list",
         "list_params": {
-          "header": "Features",
-          "body": "😊 We'd love to know...\n\nWhich feature impressed you the most?",
+          "header": "Next Step",
+          "body": "👇 What would you like to do next?",
           "footer": "Select one",
-          "buttonTitle": "Choose Feature",
-          "sectionTitle": "Features",
+          "buttonTitle": "Choose",
+          "sectionTitle": "Options",
           "items": [
-            { "title": "🤖 AI Policy Entry", "id": "___list_ai_interest", "description": "Auto-extract policy details from PDF" },
-            { "title": "🔔 Renewal Reminders", "id": "___list_renewal_interest", "description": "Never miss a renewal date" },
-            { "title": "📱 Customer App", "id": "___list_app_interest", "description": "Policy Setu App for clients" },
-            { "title": "📊 Client Management", "id": "___list_crm_interest", "description": "CRM dashboard for all clients" }
+            { "title": "🚀 Start Free Trial", "id": "Start Free Trial", "description": "Activate your free trial now" },
+            { "title": "📅 Book Live Demo", "id": "Book Live Demo", "description": "Pick a time for a live demo" },
+            { "title": "🎥 Watch Demo", "id": "Watch Demo", "description": "Watch a quick demo video" }
           ]
         }
       }
     },
     {
-      "id": "wait-engagement",
+      "id": "wait-day1-next",
       "type": "wait_for_reply",
-      "position": { "x": 1000, "y": 1720 },
-      "name": "Wait for Interest Selection",
-      "description": "Wait for feature interest",
-      "parameters": {
-        "variable_name": "feature_interest"
-      }
+      "position": { "x": 600, "y": 2800 },
+      "name": "Wait for Reply → Next Action (timeout 24h)",
+      "description": "Spec step 21 — timeout 24 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "next_action_reply", "timeout_value": 24, "timeout_unit": "hours", "timeout_ms": 86400000 }
     },
     {
-      "id": "cond-interest",
+      "id": "save-next-action",
+      "type": "response_saver",
+      "position": { "x": 600, "y": 2940 },
+      "name": "Save Response → next_action",
+      "description": "Spec step 22",
+      "parameters": { "nodeType": "response_saver", "mappings": [ { "source_path": "next_action_reply", "variable_name": "next_action", "custom_field_key": "next_action" } ] }
+    },
+    {
+      "id": "cond-day1-branch",
       "type": "condition",
-      "position": { "x": 1000, "y": 1800 },
-      "name": "Interest Branch",
-      "description": "Assign interest tag based on selection",
+      "position": { "x": 600, "y": 3080 },
+      "name": "Logic Control → Branch on next_action",
+      "description": "Spec step 23",
       "parameters": {
+        "nodeType": "condition",
         "conditions": [
-          {
-            "id": "cond-ai",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___list_ai_interest", "AI Policy Entry", "ai"],
-            "sourceHandle": "handle-ai"
-          },
-          {
-            "id": "cond-renewal",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___list_renewal_interest", "Renewal Reminders", "renewal"],
-            "sourceHandle": "handle-renewal"
-          },
-          {
-            "id": "cond-app",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___list_app_interest", "Customer App", "app"],
-            "sourceHandle": "handle-app"
-          },
-          {
-            "id": "cond-crm",
-            "field": "message",
-            "operator": "contains_any",
-            "value": ["___list_crm_interest", "Client Management", "crm"],
-            "sourceHandle": "handle-crm"
-          }
+          { "id": "d1b-noreply", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-noreply" },
+          { "id": "d1b-trial", "field": "next_action", "operator": "contains_any", "value": ["Start Free Trial"], "sourceHandle": "handle-trial" },
+          { "id": "d1b-demo", "field": "next_action", "operator": "contains_any", "value": ["Book Live Demo"], "sourceHandle": "handle-demo" },
+          { "id": "d1b-watch", "field": "next_action", "operator": "contains_any", "value": ["Watch Demo"], "sourceHandle": "handle-watch" }
         ],
-        "no_match_handle": "handle-ai"
+        "no_match_handle": "handle-noreply"
       }
     },
 
-    { "id": "tag-ai", "type": "add_tag", "position": { "x": 700, "y": 1900 }, "name": "Tag: AI_INTEREST", "parameters": { "tag_name": "AI_INTEREST" } },
-    { "id": "tag-renewal", "type": "add_tag", "position": { "x": 900, "y": 1900 }, "name": "Tag: RENEWAL_INTEREST", "parameters": { "tag_name": "RENEWAL_INTEREST" } },
-    { "id": "tag-app", "type": "add_tag", "position": { "x": 1100, "y": 1900 }, "name": "Tag: APP_INTEREST", "parameters": { "tag_name": "APP_INTEREST" } },
-    { "id": "tag-crm", "type": "add_tag", "position": { "x": 1300, "y": 1900 }, "name": "Tag: CRM_INTEREST", "parameters": { "tag_name": "CRM_INTEREST" } },
-
+    { "id": "b1-tag-trial-request", "type": "add_tag", "position": { "x": 0, "y": 3300 }, "name": "BRANCH 1 · Assign Tag → TRIAL_REQUEST", "description": "Spec B1.1", "parameters": { "nodeType": "add_tag", "tag_name": "TRIAL_REQUEST" } },
     {
-      "id": "delay-24h-d2",
-      "type": "delay",
-      "position": { "x": 1000, "y": 2000 },
-      "name": "Wait 24 Hours (Day 2)",
-      "description": "Wait until Day 2",
+      "id": "b1-api-trial",
+      "type": "api",
+      "position": { "x": 0, "y": 3440 },
+      "name": "BRANCH 1 · External API → Trial Signup",
+      "description": "Spec B1.2/B1.3 — POST Name, Phone, Meta Campaign ID; capture customer_id, trial_id, trial_start_date",
       "parameters": {
-        "delay_value": 24,
-        "delay_unit": "hours"
+        "url": "https://insurancedesk.co.in/free-trial",
+        "method": "POST",
+        "headers": { "Content-Type": "application/json" },
+        "body": { "name": "{{Name}}", "phone": "{{senderNumber}}", "meta_campaign_id": "{{meta_campaign_id}}" },
+        "response_mapping": [
+          { "response_path": "customer_id", "variable_name": "customer_id", "custom_field_key": "customer_id" },
+          { "response_path": "trial_id", "variable_name": "trial_id", "custom_field_key": "trial_id" },
+          { "response_path": "trial_start_date", "variable_name": "trial_start_date", "custom_field_key": "trial_start_date" }
+        ]
       }
     },
+    { "id": "b1-tag-trial-started", "type": "add_tag", "position": { "x": 0, "y": 3580 }, "name": "BRANCH 1 · Assign Tag → TRIAL_STARTED", "description": "Spec B1.4", "parameters": { "nodeType": "add_tag", "tag_name": "TRIAL_STARTED" } },
+    { "id": "b1-tag-funnel2", "type": "add_tag", "position": { "x": 0, "y": 3720 }, "name": "BRANCH 1 · Assign Tag → STAGE_FUNNEL2", "description": "Spec B1.5", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_FUNNEL2" } },
     {
-      "id": "cond-trial-check-d2",
-      "type": "condition",
-      "position": { "x": 1000, "y": 2100 },
-      "name": "Trial Started? (Day 2)",
-      "description": "Check if trial already started",
+      "id": "b1-sheet-update",
+      "type": "save_to_google_sheet",
+      "position": { "x": 0, "y": 3860 },
+      "name": "BRANCH 1 · Google Sheets → Update Row",
+      "description": "Spec B1.6 — Update row: Stage=Trial Started, Trial ID, Date",
       "parameters": {
-        "conditions": [
-          { "id": "cond-has-trial-d2", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d2" },
-          { "id": "cond-no-trial-d2", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d2" }
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "update",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "column_mappings": [
+          { "column": "Stage", "value": "Trial Started" },
+          { "column": "Trial ID", "value": "{{trial_id}}" },
+          { "column": "Date", "value": "{{trial_start_date}}" }
         ]
       }
     },
     {
-      "id": "cond-d2-personalized",
-      "type": "condition",
-      "position": { "x": 1000, "y": 2200 },
-      "name": "Day 2 Personalization",
-      "description": "Send personalized message based on interest",
+      "id": "b1-msg-confirm",
+      "type": "send_message",
+      "position": { "x": 0, "y": 4000 },
+      "name": "BRANCH 1 · Send Message → Trial Live",
+      "description": "Spec B1.7",
       "parameters": {
+        "nodeType": "text_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "🎉 You're in, {{Name}}! Your Insurance Desk trial is live.\nHere's your login link + a 3-step quickstart guide."
+      }
+    },
+    {
+      "id": "b1-cta-open",
+      "type": "cta_button",
+      "position": { "x": 0, "y": 4140 },
+      "name": "BRANCH 1 · Call to Action → Open Insurance Desk",
+      "description": "Spec B1.8 — END (hand to Funnel 2 automation)",
+      "parameters": {
+        "recipient": "{{senderNumber}}",
+        "text": "Tap below to open your dashboard and finish the 3-step quickstart. 👇",
+        "button_text": "Open Insurance Desk",
+        "url": "https://agent.insurancedesk.co.in/dashboard"
+      }
+    },
+
+    {
+      "id": "b2-sel-slot",
+      "type": "send_message",
+      "position": { "x": 400, "y": 3300 },
+      "name": "BRANCH 2 · Selection List → Preferred Time",
+      "description": "Spec B2.1 — Morning | Afternoon | Evening",
+      "parameters": {
+        "nodeType": "list_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "📅 Great choice! Please pick your preferred time for a live demo:",
+        "messageType": "interactive",
+        "interactive_type": "list",
+        "list_params": {
+          "header": "Book Live Demo",
+          "body": "📅 Great choice! Please pick your preferred time for a live demo:",
+          "footer": "Select one",
+          "buttonTitle": "Choose Time",
+          "sectionTitle": "Preferred time",
+          "items": [
+            { "title": "🌅 Morning", "id": "Morning", "description": "9am – 12pm" },
+            { "title": "🌞 Afternoon", "id": "Afternoon", "description": "12pm – 4pm" },
+            { "title": "🌙 Evening", "id": "Evening", "description": "4pm – 8pm" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2-wait-slot",
+      "type": "wait_for_reply",
+      "position": { "x": 400, "y": 3440 },
+      "name": "BRANCH 2 · Wait for Reply → Slot (timeout 12h)",
+      "description": "Spec B2.2 — timeout 12 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "slot_reply", "timeout_value": 12, "timeout_unit": "hours", "timeout_ms": 43200000 }
+    },
+    {
+      "id": "b2-cond-slot-noreply",
+      "type": "condition",
+      "position": { "x": 400, "y": 3580 },
+      "name": "BRANCH 2 · Logic Control → Slot No Reply?",
+      "description": "Guard: no slot reply within 12h → END (spec leaves Branch-2 timeout undefined; ending prevents a dead wait).",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [ { "id": "b2-timeout", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-exit" } ],
+        "no_match_handle": "handle-continue"
+      }
+    },
+    {
+      "id": "b2-save-slot",
+      "type": "response_saver",
+      "position": { "x": 400, "y": 3720 },
+      "name": "BRANCH 2 · Save Response → preferred_slot",
+      "description": "Spec B2.3",
+      "parameters": { "nodeType": "response_saver", "mappings": [ { "source_path": "slot_reply", "variable_name": "preferred_slot", "custom_field_key": "preferred_slot" } ] }
+    },
+    {
+      "id": "b2-cal-event",
+      "type": "create_calendar_event",
+      "position": { "x": 400, "y": 3860 },
+      "name": "BRANCH 2 · Calendar Event → Create Booking",
+      "description": "Spec B2.4 — use preferred_slot to set time window",
+      "parameters": {
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "calendar_id": "primary",
+        "summary": "Insurance Desk Demo — {{Name}} ({{preferred_slot}})",
+        "description": "Live demo booked via WhatsApp funnel. Contact: {{senderNumber}}. Preferred slot: {{preferred_slot}}.",
+        "start_time": "__DEMO_SLOT_START_ISO__",
+        "end_time": "__DEMO_SLOT_END_ISO__"
+      }
+    },
+    { "id": "b2-tag-booked", "type": "add_tag", "position": { "x": 400, "y": 4000 }, "name": "BRANCH 2 · Assign Tag → BOOKED_DEMO", "description": "Spec B2.5 (side-trigger lead_score +30)", "parameters": { "nodeType": "add_tag", "tag_name": "BOOKED_DEMO" } },
+    {
+      "id": "b2-sheet-update",
+      "type": "save_to_google_sheet",
+      "position": { "x": 400, "y": 4140 },
+      "name": "BRANCH 2 · Google Sheets → Update Row",
+      "description": "Spec B2.6 — Update row: Stage=Demo Booked, Slot, Rep=unassigned",
+      "parameters": {
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "update",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "column_mappings": [
+          { "column": "Stage", "value": "Demo Booked" },
+          { "column": "Slot", "value": "{{preferred_slot}}" },
+          { "column": "Rep", "value": "unassigned" }
+        ]
+      }
+    },
+    {
+      "id": "b2-assign-sales",
+      "type": "assign_chatbot",
+      "position": { "x": 400, "y": 4280 },
+      "name": "BRANCH 2 · Assign Chatbot → Sales Team queue",
+      "description": "Spec B2.7",
+      "parameters": { "chatbot_id": "__SALES_TEAM_CHATBOT_ID__", "duration_hours": 0 }
+    },
+    { "id": "b2-tag-sales-owned", "type": "add_tag", "position": { "x": 400, "y": 4420 }, "name": "BRANCH 2 · Assign Tag → SALES_OWNED", "description": "Marks lead as owned by Sales so later EXIT CHECKs stop nurturing.", "parameters": { "nodeType": "add_tag", "tag_name": "SALES_OWNED" } },
+    {
+      "id": "b2-msg-confirm",
+      "type": "send_message",
+      "position": { "x": 400, "y": 4560 },
+      "name": "BRANCH 2 · Send Message → Demo Confirmed",
+      "description": "Spec B2.8 — END (owned by Sales)",
+      "parameters": {
+        "nodeType": "text_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "Perfect! Your demo is booked for {{preferred_slot}}.\nOur team will call/join shortly before. See you then!"
+      }
+    },
+
+    { "id": "b3-tag-watched", "type": "add_tag", "position": { "x": 1000, "y": 3300 }, "name": "BRANCH 3 · Assign Tag → WATCHED_DEMO", "description": "Spec B3.1 (side-trigger lead_score +15)", "parameters": { "nodeType": "add_tag", "tag_name": "WATCHED_DEMO" } },
+    {
+      "id": "b3-msg-watch",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 3440 },
+      "name": "BRANCH 3 · Send Message → Watch Demo",
+      "description": "Spec B3.2 (also Day-1B nudge 'Yes' entry point)",
+      "parameters": {
+        "nodeType": "text_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👀 Curious how Insurance Desk works?\n🎥 Watch our 3-minute demo:\n✅ Never miss renewals\n🤖 AI Policy Entry\n📲 Manage clients effortlessly"
+      }
+    },
+    { "id": "b3-media-full", "type": "send_message", "position": { "x": 1000, "y": 3580 }, "name": "BRANCH 3 · Attach Media → demo_video_full.mp4", "description": "Spec B3.3", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/demo_video_full.mp4" } },
+    {
+      "id": "b3-cta-watch",
+      "type": "cta_button",
+      "position": { "x": 1000, "y": 3720 },
+      "name": "BRANCH 3 · Call to Action → Watch Now",
+      "description": "Spec B3.4",
+      "parameters": { "recipient": "{{senderNumber}}", "text": "▶️ Tap to watch the 3-minute demo now.", "button_text": "Watch Now", "url": "https://youtu.be/-mufz4rPYR4?si=yuLwiCSWt8sMUZXF" }
+    },
+    { "id": "b3-delay-30m", "type": "delay", "position": { "x": 1000, "y": 3860 }, "name": "BRANCH 3 · Wait Timer → 30 minutes", "description": "Spec B3.5", "parameters": { "nodeType": "delay", "delay_ms": 1800000, "delay_value": 30, "delay_unit": "minutes" } },
+    {
+      "id": "b3-msg-feature",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 4000 },
+      "name": "BRANCH 3 · Send Message → Which feature",
+      "description": "Spec B3.6",
+      "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Which feature impressed you the most?" }
+    },
+    {
+      "id": "b3-sel-feature",
+      "type": "send_message",
+      "position": { "x": 1000, "y": 4140 },
+      "name": "BRANCH 3 · Selection List → Feature Interest",
+      "description": "Spec B3.7 — AI Policy Entry | Renewal Reminder | Customer App | Client Management",
+      "parameters": {
+        "nodeType": "list_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👇 Pick the feature that stood out:",
+        "messageType": "interactive",
+        "interactive_type": "list",
+        "list_params": {
+          "header": "Features",
+          "body": "👇 Pick the feature that stood out:",
+          "footer": "Select one",
+          "buttonTitle": "Choose Feature",
+          "sectionTitle": "Features",
+          "items": [
+            { "title": "🤖 AI Policy Entry", "id": "AI Policy Entry", "description": "Auto-fill policy details from PDF" },
+            { "title": "🔔 Renewal Reminder", "id": "Renewal Reminder", "description": "Never miss a renewal date" },
+            { "title": "📱 Customer App", "id": "Customer App", "description": "Branded app for your clients" },
+            { "title": "📊 Client Management", "id": "Client Management", "description": "One dashboard for everything" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b3-wait-feature",
+      "type": "wait_for_reply",
+      "position": { "x": 1000, "y": 4280 },
+      "name": "BRANCH 3 · Wait for Reply → Feature (timeout 24h)",
+      "description": "Spec B3.8 — timeout 24 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "feature_reply", "timeout_value": 24, "timeout_unit": "hours", "timeout_ms": 86400000 }
+    },
+    {
+      "id": "b3-save-feature",
+      "type": "response_saver",
+      "position": { "x": 1000, "y": 4420 },
+      "name": "BRANCH 3 · Save Response → feature_interest",
+      "description": "Spec B3.9",
+      "parameters": { "nodeType": "response_saver", "mappings": [ { "source_path": "feature_reply", "variable_name": "feature_interest", "custom_field_key": "feature_interest" } ] }
+    },
+    {
+      "id": "b3-cond-feature",
+      "type": "condition",
+      "position": { "x": 1000, "y": 4560 },
+      "name": "BRANCH 3 · Logic Control → Assign Interest Tag",
+      "description": "Spec B3.10 — No reply → skip tag, continue to Day 2",
+      "parameters": {
+        "nodeType": "condition",
         "conditions": [
-          { "id": "cond-d2-ai", "field": "contact.tags", "operator": "has_tag", "value": "AI_INTEREST", "sourceHandle": "handle-d2-ai" },
-          { "id": "cond-d2-renewal", "field": "contact.tags", "operator": "has_tag", "value": "RENEWAL_INTEREST", "sourceHandle": "handle-d2-renewal" },
-          { "id": "cond-d2-app", "field": "contact.tags", "operator": "has_tag", "value": "APP_INTEREST", "sourceHandle": "handle-d2-app" },
-          { "id": "cond-d2-crm", "field": "contact.tags", "operator": "has_tag", "value": "CRM_INTEREST", "sourceHandle": "handle-d2-crm" }
+          { "id": "b3-noreply", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-skip" },
+          { "id": "b3-ai", "field": "feature_interest", "operator": "contains_any", "value": ["AI Policy Entry"], "sourceHandle": "handle-ai" },
+          { "id": "b3-renewal", "field": "feature_interest", "operator": "contains_any", "value": ["Renewal Reminder"], "sourceHandle": "handle-renewal" },
+          { "id": "b3-app", "field": "feature_interest", "operator": "contains_any", "value": ["Customer App"], "sourceHandle": "handle-app" },
+          { "id": "b3-crm", "field": "feature_interest", "operator": "contains_any", "value": ["Client Management"], "sourceHandle": "handle-crm" }
         ],
-        "no_match_handle": "handle-d2-ai"
+        "no_match_handle": "handle-skip"
       }
     },
+    { "id": "b3-tag-ai", "type": "add_tag", "position": { "x": 700, "y": 4720 }, "name": "BRANCH 3 · Assign Tag → AI_INTEREST", "description": "Spec B3.10 (side-trigger lead_score +10)", "parameters": { "nodeType": "add_tag", "tag_name": "AI_INTEREST" } },
+    { "id": "b3-tag-renewal", "type": "add_tag", "position": { "x": 900, "y": 4720 }, "name": "BRANCH 3 · Assign Tag → RENEWAL_INTEREST", "description": "Spec B3.10 (side-trigger lead_score +10)", "parameters": { "nodeType": "add_tag", "tag_name": "RENEWAL_INTEREST" } },
+    { "id": "b3-tag-app", "type": "add_tag", "position": { "x": 1100, "y": 4720 }, "name": "BRANCH 3 · Assign Tag → APP_INTEREST", "description": "Spec B3.10 (side-trigger lead_score +10)", "parameters": { "nodeType": "add_tag", "tag_name": "APP_INTEREST" } },
+    { "id": "b3-tag-crm", "type": "add_tag", "position": { "x": 1300, "y": 4720 }, "name": "BRANCH 3 · Assign Tag → CRM_INTEREST", "description": "Spec B3.10 (side-trigger lead_score +10)", "parameters": { "nodeType": "add_tag", "tag_name": "CRM_INTEREST" } },
 
+    { "id": "d1b-tag-noreply", "type": "add_tag", "position": { "x": 1700, "y": 3300 }, "name": "DAY 1B · Assign Tag → NO_REPLY_DAY1", "description": "Day-1B entry marker (spec tag NO_REPLY_DAY1)", "parameters": { "nodeType": "add_tag", "tag_name": "NO_REPLY_DAY1" } },
+    { "id": "d1b-delay-24h", "type": "delay", "position": { "x": 1700, "y": 3440 }, "name": "DAY 1B · Wait Timer → 24 hours", "description": "Spec step 25", "parameters": { "nodeType": "delay", "delay_ms": 86400000, "delay_value": 24, "delay_unit": "hours" } },
     {
-      "id": "msg-d2-ai", "type": "send_message", "position": { "x": 600, "y": 2300 }, "name": "Day 2: AI Interest",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🤖 Did you know?\n\nJust upload your policy PDF and Insurance Desk automatically extracts customer details using AI.\n\nSave hours of manual work every week.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Try AI Now", "id": "___btn_try_ai" },
-          { "title": "🎥 Watch AI Demo", "id": "___btn_ai_demo" },
-          { "title": "📞 Call Me", "id": "___btn_call_ai" }
-        ]
-      }
-    },
-    {
-      "id": "msg-d2-renewal", "type": "send_message", "position": { "x": 850, "y": 2300 }, "name": "Day 2: Renewal Interest",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🔔 Never forget another renewal.\n\nInsurance Desk reminds you before every policy expires so you never miss another renewal opportunity.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Trial", "id": "___btn_trial_renewal" },
-          { "title": "🎥 Reminder Demo", "id": "___btn_renewal_demo" },
-          { "title": "📞 Call Me", "id": "___btn_call_renewal" }
-        ]
-      }
-    },
-    {
-      "id": "msg-d2-app", "type": "send_message", "position": { "x": 1100, "y": 2300 }, "name": "Day 2: App Interest",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "📱 Give your customers a premium experience.\n\nYour clients can access policies, download documents, and contact you anytime using the Policy Setu App.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🎥 Watch App Demo", "id": "___btn_app_demo" },
-          { "title": "🚀 Start Trial", "id": "___btn_trial_app" },
-          { "title": "📞 Book Demo", "id": "___btn_demo_app" }
-        ]
-      }
-    },
-    {
-      "id": "msg-d2-crm", "type": "send_message", "position": { "x": 1350, "y": 2300 }, "name": "Day 2: CRM Interest",
-      "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "📊 Manage all your clients from one dashboard.\n\nTrack renewals, commissions, documents, and follow-ups without Excel.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Trial", "id": "___btn_trial_crm" },
-          { "title": "🎥 CRM Demo", "id": "___btn_crm_demo" },
-          { "title": "📞 Talk to Expert", "id": "___btn_expert_crm" }
-        ]
-      }
-    },
-
-    {
-      "id": "delay-24h-d3",
-      "type": "delay",
-      "position": { "x": 1000, "y": 2500 },
-      "name": "Wait 24 Hours (Day 3)",
-      "parameters": { "delay_value": 24, "delay_unit": "hours" }
-    },
-    {
-      "id": "cond-trial-check-d3",
+      "id": "d1b-cond-engaged",
       "type": "condition",
-      "position": { "x": 1000, "y": 2600 },
-      "name": "Trial Started? (Day 3)",
+      "position": { "x": 1700, "y": 3580 },
+      "name": "DAY 1B · Logic Control → Still No Reply?",
+      "description": "Spec step 26 — if the lead has converted/engaged, skip nudge to Day 2; else send nudge.",
       "parameters": {
+        "nodeType": "condition",
         "conditions": [
-          { "id": "cond-has-trial-d3", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d3" },
-          { "id": "cond-no-trial-d3", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d3" }
+          { "id": "d1b-eng-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-engaged" },
+          { "id": "d1b-eng-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-engaged" },
+          { "id": "d1b-eng-sales", "field": "contact.tags", "operator": "has_tag", "value": "SALES_OWNED", "sourceHandle": "handle-engaged" }
+        ],
+        "no_match_handle": "handle-noreply"
+      }
+    },
+    {
+      "id": "d1b-msg-nudge",
+      "type": "send_message",
+      "position": { "x": 1700, "y": 3720 },
+      "name": "DAY 1B · Send Message → Nudge",
+      "description": "Spec step 27",
+      "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Hi {{Name}}, just checking in — want a quick 2-min look at how Insurance Desk can save you time on renewals?" }
+    },
+    {
+      "id": "d1b-qr-nudge",
+      "type": "send_message",
+      "position": { "x": 1700, "y": 3860 },
+      "name": "DAY 1B · Quick Reply → Nudge",
+      "description": "Spec step 28 — Yes, show me | Not now",
+      "parameters": {
+        "nodeType": "button_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👇 Want a quick look?",
+        "messageType": "interactive",
+        "interactive_type": "button",
+        "button_params": [
+          { "title": "👍 Yes, show me", "id": "Yes, show me" },
+          { "title": "🙅 Not now", "id": "Not now" }
         ]
       }
     },
     {
-      "id": "msg-day3",
-      "type": "send_message",
-      "position": { "x": 1000, "y": 2700 },
-      "name": "Day 3: Social Proof",
+      "id": "d1b-wait-nudge",
+      "type": "wait_for_reply",
+      "position": { "x": 1700, "y": 4000 },
+      "name": "DAY 1B · Wait for Reply → Nudge (timeout 24h)",
+      "description": "Spec step 29 — timeout 24 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "nudge_reply", "timeout_value": 24, "timeout_unit": "hours", "timeout_ms": 86400000 }
+    },
+    {
+      "id": "d1b-cond-nudge",
+      "type": "condition",
+      "position": { "x": 1700, "y": 4140 },
+      "name": "DAY 1B · Logic Control → Nudge Branch",
+      "description": "Spec step 30 — 'Yes, show me'→Branch 3 (B3.2); 'Not now'/no reply→Day 2",
       "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "⭐ Hundreds of insurance advisors trust Insurance Desk to manage renewals, clients, and policy records more efficiently.\n\nImagine recovering just *2 extra renewals every month.*",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Trial", "id": "___btn_trial_d3" },
-          { "title": "📅 Book Demo", "id": "___btn_demo_d3" },
-          { "title": "🎥 Success Story", "id": "___btn_story_d3" }
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "d1b-yes", "field": "nudge_reply", "operator": "contains_any", "value": ["Yes, show me"], "sourceHandle": "handle-yes" }
+        ],
+        "no_match_handle": "handle-continue"
+      }
+    },
+
+    { "id": "tag-stage-day2", "type": "add_tag", "position": { "x": 600, "y": 5000 }, "name": "Assign Tag → STAGE_DAY2", "description": "Spec step 31", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY2" } },
+    {
+      "id": "cond-day2-interest",
+      "type": "condition",
+      "position": { "x": 600, "y": 5140 },
+      "name": "Logic Control → Day 2 Personalization",
+      "description": "Spec step 32 — check most recent interest tag; none → default (33e)",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "d2-ai", "field": "contact.tags", "operator": "has_tag", "value": "AI_INTEREST", "sourceHandle": "handle-ai" },
+          { "id": "d2-renewal", "field": "contact.tags", "operator": "has_tag", "value": "RENEWAL_INTEREST", "sourceHandle": "handle-renewal" },
+          { "id": "d2-app", "field": "contact.tags", "operator": "has_tag", "value": "APP_INTEREST", "sourceHandle": "handle-app" },
+          { "id": "d2-crm", "field": "contact.tags", "operator": "has_tag", "value": "CRM_INTEREST", "sourceHandle": "handle-crm" }
+        ],
+        "no_match_handle": "handle-default"
+      }
+    },
+    { "id": "d2-msg-ai", "type": "send_message", "position": { "x": 0, "y": 5320 }, "name": "Day 2 · Send Message → AI (33a)", "description": "Spec step 33a", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Stop typing policy details manually. Insurance Desk reads your policy PDF and auto-fills everything in seconds. Try it free 👇" } },
+    { "id": "d2-media-ai", "type": "send_message", "position": { "x": 0, "y": 5460 }, "name": "Day 2 · Attach Media → ai_policy_entry.gif", "description": "Spec step 33a", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/ai_policy_entry.gif" } },
+    { "id": "d2-msg-renewal", "type": "send_message", "position": { "x": 300, "y": 5320 }, "name": "Day 2 · Send Message → Renewal (33b)", "description": "Spec step 33b", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Never lose a renewal again. Insurance Desk auto-reminds you and your client before every due date. See it in action 👇" } },
+    { "id": "d2-media-renewal", "type": "send_message", "position": { "x": 300, "y": 5460 }, "name": "Day 2 · Attach Media → renewal_reminder.gif", "description": "Spec step 33b", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/renewal_reminder.gif" } },
+    { "id": "d2-msg-app", "type": "send_message", "position": { "x": 600, "y": 5320 }, "name": "Day 2 · Send Message → App (33c)", "description": "Spec step 33c", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Give your clients their own app to view policies, renewals & documents — under your brand. Try Insurance Desk free 👇" } },
+    { "id": "d2-media-app", "type": "send_message", "position": { "x": 600, "y": 5460 }, "name": "Day 2 · Attach Media → customer_app.gif", "description": "Spec step 33c", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/customer_app.gif" } },
+    { "id": "d2-msg-crm", "type": "send_message", "position": { "x": 900, "y": 5320 }, "name": "Day 2 · Send Message → CRM (33d)", "description": "Spec step 33d", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "One dashboard for every lead, client and policy — no more scattered Excel sheets. Start your free trial 👇" } },
+    { "id": "d2-media-crm", "type": "send_message", "position": { "x": 900, "y": 5460 }, "name": "Day 2 · Attach Media → client_management.gif", "description": "Spec step 33d", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/client_management.gif" } },
+    { "id": "d2-msg-overview", "type": "send_message", "position": { "x": 1200, "y": 5320 }, "name": "Day 2 · Send Message → Overview (33e default)", "description": "Spec step 33e", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Insurance Desk gives you AI Policy Entry, Renewal Reminders, a branded Customer App, and full Client Management — all in one place. Try it free 👇" } },
+    { "id": "d2-media-overview", "type": "send_message", "position": { "x": 1200, "y": 5460 }, "name": "Day 2 · Attach Media → overview.gif", "description": "Spec step 33e", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/overview.gif" } },
+    {
+      "id": "d2-cta",
+      "type": "cta_button",
+      "position": { "x": 600, "y": 5620 },
+      "name": "Day 2 · Call to Action → Start Free Trial",
+      "description": "Spec step 34",
+      "parameters": { "recipient": "{{senderNumber}}", "text": "Start your free trial now — no card needed. 👇", "button_text": "Start Free Trial", "url": "https://insurancedesk.co.in/free-trial" }
+    },
+    { "id": "d2-delay-24h", "type": "delay", "position": { "x": 600, "y": 5760 }, "name": "Day 2 · Wait Timer → 24 hours", "description": "Spec step 35", "parameters": { "nodeType": "delay", "delay_ms": 86400000, "delay_value": 24, "delay_unit": "hours" } },
+    {
+      "id": "exit-check-day2",
+      "type": "condition",
+      "position": { "x": 600, "y": 5900 },
+      "name": "EXIT CHECK (Day 2)",
+      "description": "Spec step 36",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "ec2-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-exit" },
+          { "id": "ec2-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-exit" },
+          { "id": "ec2-sales", "field": "contact.tags", "operator": "has_tag", "value": "SALES_OWNED", "sourceHandle": "handle-exit" }
+        ],
+        "no_match_handle": "handle-continue"
+      }
+    },
+
+    { "id": "tag-stage-day3", "type": "add_tag", "position": { "x": 600, "y": 6080 }, "name": "Assign Tag → STAGE_DAY3", "description": "Spec step 37", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY3" } },
+    {
+      "id": "d3-msg-story",
+      "type": "send_message",
+      "position": { "x": 600, "y": 6220 },
+      "name": "Day 3 · Send Message → Social Proof",
+      "description": "Spec step 38",
+      "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Meet Rakesh, an insurance advisor from Ahmedabad. Before Insurance Desk he was missing 8–10 renewals a month. In 60 days with Insurance Desk, he recovered ₹40,000+ in commission he would've lost. Real story, real numbers 👇" }
+    },
+    { "id": "d3-media-rakesh", "type": "send_message", "position": { "x": 600, "y": 6360 }, "name": "Day 3 · Attach Media → testimonial_rakesh.jpg", "description": "Spec step 39", "parameters": { "nodeType": "media_message", "recipient": "{{senderNumber}}", "media_url": "__MEDIA_BASE_URL__/testimonial_rakesh.jpg" } },
+    {
+      "id": "d3-cta",
+      "type": "cta_button",
+      "position": { "x": 600, "y": 6500 },
+      "name": "Day 3 · Call to Action → Start Free Trial",
+      "description": "Spec step 40",
+      "parameters": { "recipient": "{{senderNumber}}", "text": "Start your free trial and stop losing renewals. 👇", "button_text": "Start Free Trial", "url": "https://insurancedesk.co.in/free-trial" }
+    },
+    { "id": "d3-delay-24h", "type": "delay", "position": { "x": 600, "y": 6640 }, "name": "Day 3 · Wait Timer → 24 hours", "description": "Spec step 41", "parameters": { "nodeType": "delay", "delay_ms": 86400000, "delay_value": 24, "delay_unit": "hours" } },
+    {
+      "id": "exit-check-day3",
+      "type": "condition",
+      "position": { "x": 600, "y": 6780 },
+      "name": "EXIT CHECK (Day 3)",
+      "description": "Spec step 42",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "ec3-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-exit" },
+          { "id": "ec3-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-exit" },
+          { "id": "ec3-sales", "field": "contact.tags", "operator": "has_tag", "value": "SALES_OWNED", "sourceHandle": "handle-exit" }
+        ],
+        "no_match_handle": "handle-continue"
+      }
+    },
+    {
+      "id": "grade-cond",
+      "type": "condition",
+      "position": { "x": 600, "y": 6920 },
+      "name": "Logic Control → Lead Grade (42a)",
+      "description": "Spec step 42a — ≥40 HOT, 15–39 WARM, <15 COLD",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "grade-hot", "field": "lead_score", "operator": "greater_than_or_equal", "value": 40, "sourceHandle": "handle-hot" },
+          { "id": "grade-warm", "field": "lead_score", "operator": "greater_than_or_equal", "value": 15, "sourceHandle": "handle-warm" }
+        ],
+        "no_match_handle": "handle-cold"
+      }
+    },
+    { "id": "grade-tag-hot", "type": "add_tag", "position": { "x": 300, "y": 7080 }, "name": "Assign Tag → HOT_LEAD", "description": "Spec step 42a (HOT)", "parameters": { "nodeType": "add_tag", "tag_name": "HOT_LEAD" } },
+    { "id": "grade-assign-sales", "type": "assign_chatbot", "position": { "x": 300, "y": 7220 }, "name": "Assign Chatbot → notify Sales Team", "description": "Spec step 42a (HOT → notify Sales Team)", "parameters": { "chatbot_id": "__SALES_TEAM_CHATBOT_ID__", "duration_hours": 0 } },
+    { "id": "grade-tag-sales-owned", "type": "add_tag", "position": { "x": 300, "y": 7360 }, "name": "Assign Tag → SALES_OWNED (HOT)", "description": "Hot lead handed to Sales; later EXIT CHECKs stop nurturing.", "parameters": { "nodeType": "add_tag", "tag_name": "SALES_OWNED" } },
+    { "id": "grade-tag-warm", "type": "add_tag", "position": { "x": 600, "y": 7080 }, "name": "Assign Tag → WARM_LEAD", "description": "Spec step 42a (WARM)", "parameters": { "nodeType": "add_tag", "tag_name": "WARM_LEAD" } },
+    { "id": "grade-tag-cold", "type": "add_tag", "position": { "x": 900, "y": 7080 }, "name": "Assign Tag → COLD_LEAD", "description": "Spec step 42a (COLD)", "parameters": { "nodeType": "add_tag", "tag_name": "COLD_LEAD" } },
+    {
+      "id": "grade-sheet-update",
+      "type": "save_to_google_sheet",
+      "position": { "x": 600, "y": 7500 },
+      "name": "Google Sheets → Update Lead Score/Grade (42b)",
+      "description": "Spec step 42b — Update row: Lead Score, Lead Grade",
+      "parameters": {
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "update",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "column_mappings": [
+          { "column": "Lead Score", "value": "{{lead_score}}" },
+          { "column": "Lead Grade", "value": "{{last_tag_added}}" }
         ]
       }
     },
 
+    { "id": "tag-stage-day4", "type": "add_tag", "position": { "x": 600, "y": 7680 }, "name": "Assign Tag → STAGE_DAY4", "description": "Spec step 43", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY4" } },
     {
-      "id": "delay-24h-d4",
-      "type": "delay",
-      "position": { "x": 1000, "y": 2900 },
-      "name": "Wait 24 Hours (Day 4)",
-      "parameters": { "delay_value": 24, "delay_unit": "hours" }
+      "id": "d4-msg-intro",
+      "type": "send_message",
+      "position": { "x": 600, "y": 7820 },
+      "name": "Day 4 · Send Message → Objection Intro",
+      "description": "Spec step 44",
+      "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Still thinking it over? Totally fine — here's what other agents usually ask us before starting 👇" }
     },
     {
-      "id": "cond-trial-check-d4",
-      "type": "condition",
-      "position": { "x": 1000, "y": 3000 },
-      "name": "Trial Started? (Day 4)",
+      "id": "d4-sel-objection",
+      "type": "send_message",
+      "position": { "x": 600, "y": 7960 },
+      "name": "Day 4 · Selection List → Objection",
+      "description": "Spec step 45 — Too Costly | No Time to Learn | Not Sure It Helps Me",
       "parameters": {
-        "conditions": [
-          { "id": "cond-has-trial-d4", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d4" },
-          { "id": "cond-no-trial-d4", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d4" }
-        ]
+        "nodeType": "list_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "👇 What's holding you back?",
+        "messageType": "interactive",
+        "interactive_type": "list",
+        "list_params": {
+          "header": "Common questions",
+          "body": "👇 What's holding you back?",
+          "footer": "Select one",
+          "buttonTitle": "Choose",
+          "sectionTitle": "Questions",
+          "items": [
+            { "title": "💰 Too Costly", "id": "Too Costly", "description": "Worried about the price" },
+            { "title": "⏱️ No Time to Learn", "id": "No Time", "description": "Setup feels like effort" },
+            { "title": "🤔 Not Sure It Helps Me", "id": "Not Sure", "description": "Unsure about the value" }
+          ]
+        }
       }
     },
     {
-      "id": "msg-day4",
-      "type": "send_message",
-      "position": { "x": 1000, "y": 3100 },
-      "name": "Day 4: ROI",
+      "id": "d4-wait-objection",
+      "type": "wait_for_reply",
+      "position": { "x": 600, "y": 8100 },
+      "name": "Day 4 · Wait for Reply → Objection (timeout 24h)",
+      "description": "Spec step 46 — timeout 24 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "objection_reply", "timeout_value": 24, "timeout_unit": "hours", "timeout_ms": 86400000 }
+    },
+    {
+      "id": "d4-save-objection",
+      "type": "response_saver",
+      "position": { "x": 600, "y": 8240 },
+      "name": "Day 4 · Save Response → objection_type",
+      "description": "Spec step 47",
+      "parameters": { "nodeType": "response_saver", "mappings": [ { "source_path": "objection_reply", "variable_name": "objection_type", "custom_field_key": "objection_type" } ] }
+    },
+    {
+      "id": "d4-cond-objection",
+      "type": "condition",
+      "position": { "x": 600, "y": 8380 },
+      "name": "Day 4 · Logic Control → Objection Branch",
+      "description": "Spec step 48 — No reply → skip to step 49",
       "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "💰 Let's do a quick calculation.\n\nIf Insurance Desk helps you recover just *2 additional renewals every month*, how much extra commission could that generate in a year?\n\nThat's why insurance advisors choose automation.",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Start Trial", "id": "___btn_trial_d4" },
-          { "title": "📞 Calculate My ROI", "id": "___btn_roi_d4" },
-          { "title": "📅 Demo", "id": "___btn_demo_d4" }
-        ]
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "d4-noreply", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-skip" },
+          { "id": "d4-cost", "field": "objection_type", "operator": "contains_any", "value": ["Too Costly"], "sourceHandle": "handle-cost" },
+          { "id": "d4-time", "field": "objection_type", "operator": "contains_any", "value": ["No Time"], "sourceHandle": "handle-time" },
+          { "id": "d4-value", "field": "objection_type", "operator": "contains_any", "value": ["Not Sure"], "sourceHandle": "handle-value" }
+        ],
+        "no_match_handle": "handle-skip"
+      }
+    },
+    { "id": "d4-obj-cost-tag", "type": "add_tag", "position": { "x": 200, "y": 8540 }, "name": "Day 4 · Assign Tag → OBJECTION_COST", "description": "Spec step 48 (Too Costly, side-trigger +10)", "parameters": { "nodeType": "add_tag", "tag_name": "OBJECTION_COST" } },
+    { "id": "d4-obj-cost-msg", "type": "send_message", "position": { "x": 200, "y": 8680 }, "name": "Day 4 · Send Message → Cost Rebuttal", "description": "Spec step 48 (Too Costly)", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Insurance Desk starts at less than the cost of one missed renewal commission. Try it free for 7 days, no card needed." } },
+    { "id": "d4-obj-time-tag", "type": "add_tag", "position": { "x": 500, "y": 8540 }, "name": "Day 4 · Assign Tag → OBJECTION_TIME", "description": "Spec step 48 (No Time, side-trigger +10)", "parameters": { "nodeType": "add_tag", "tag_name": "OBJECTION_TIME" } },
+    { "id": "d4-obj-time-msg", "type": "send_message", "position": { "x": 500, "y": 8680 }, "name": "Day 4 · Send Message → Time Rebuttal", "description": "Spec step 48 (No Time)", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Setup takes under 10 minutes. Our AI does the data entry for you — most agents are up and running same day." } },
+    { "id": "d4-obj-value-tag", "type": "add_tag", "position": { "x": 800, "y": 8540 }, "name": "Day 4 · Assign Tag → OBJECTION_VALUE", "description": "Spec step 48 (Not Sure, side-trigger +10)", "parameters": { "nodeType": "add_tag", "tag_name": "OBJECTION_VALUE" } },
+    { "id": "d4-obj-value-msg", "type": "send_message", "position": { "x": 800, "y": 8680 }, "name": "Day 4 · Send Message → Value Rebuttal", "description": "Spec step 48 (Not Sure)", "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Try it free with your own leads for a week — you'll see the difference in how organized your pipeline feels." } },
+    {
+      "id": "d4-cta",
+      "type": "cta_button",
+      "position": { "x": 600, "y": 8820 },
+      "name": "Day 4 · Call to Action → Start Free Trial",
+      "description": "Spec step 49",
+      "parameters": { "recipient": "{{senderNumber}}", "text": "Start your free trial — 7 days, no card. 👇", "button_text": "Start Free Trial", "url": "https://insurancedesk.co.in/free-trial" }
+    },
+    { "id": "d4-delay-24h", "type": "delay", "position": { "x": 600, "y": 8960 }, "name": "Day 4 · Wait Timer → 24 hours", "description": "Spec step 50", "parameters": { "nodeType": "delay", "delay_ms": 86400000, "delay_value": 24, "delay_unit": "hours" } },
+    {
+      "id": "exit-check-day4",
+      "type": "condition",
+      "position": { "x": 600, "y": 9100 },
+      "name": "EXIT CHECK (Day 4)",
+      "description": "Spec step 51",
+      "parameters": {
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "ec4-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-exit" },
+          { "id": "ec4-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-exit" },
+          { "id": "ec4-sales", "field": "contact.tags", "operator": "has_tag", "value": "SALES_OWNED", "sourceHandle": "handle-exit" }
+        ],
+        "no_match_handle": "handle-continue"
       }
     },
 
+    { "id": "tag-stage-day5", "type": "add_tag", "position": { "x": 600, "y": 9280 }, "name": "Assign Tag → STAGE_DAY5", "description": "Spec step 52", "parameters": { "nodeType": "add_tag", "tag_name": "STAGE_DAY5" } },
     {
-      "id": "delay-24h-d5",
-      "type": "delay",
-      "position": { "x": 1000, "y": 3300 },
-      "name": "Wait 24 Hours (Day 5)",
-      "parameters": { "delay_value": 24, "delay_unit": "hours" }
+      "id": "d5-msg-final",
+      "type": "send_message",
+      "position": { "x": 600, "y": 9420 },
+      "name": "Day 5 · Send Message → Final Offer",
+      "description": "Spec step 53",
+      "parameters": { "nodeType": "text_message", "recipient": "{{senderNumber}}", "message_template": "Last note from us, {{Name}} — your free trial is one tap away. No pressure, just wanted to make sure you didn't miss it 🙂" }
     },
     {
-      "id": "cond-trial-check-d5",
-      "type": "condition",
-      "position": { "x": 1000, "y": 3400 },
-      "name": "Trial Started? (Day 5)",
+      "id": "d5-cta",
+      "type": "cta_button",
+      "position": { "x": 600, "y": 9560 },
+      "name": "Day 5 · Call to Action → Start Free Trial",
+      "description": "Spec step 54",
+      "parameters": { "recipient": "{{senderNumber}}", "text": "One tap to start your free trial. 👇", "button_text": "Start Free Trial", "url": "https://insurancedesk.co.in/free-trial" }
+    },
+    {
+      "id": "d5-qr-notinterested",
+      "type": "send_message",
+      "position": { "x": 600, "y": 9700 },
+      "name": "Day 5 · Quick Reply → Not interested",
+      "description": "Spec step 55 — 'Not interested right now'",
       "parameters": {
-        "conditions": [
-          { "id": "cond-has-trial-d5", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-yes-d5" },
-          { "id": "cond-no-trial-d5", "field": "contact.tags", "operator": "not_has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-trial-no-d5" }
-        ]
+        "nodeType": "button_message",
+        "recipient": "{{senderNumber}}",
+        "message_template": "Or let us know if now isn't the right time:",
+        "messageType": "interactive",
+        "interactive_type": "button",
+        "button_params": [ { "title": "🙅 Not interested right now", "id": "Not interested" } ]
       }
     },
     {
-      "id": "msg-day5",
-      "type": "send_message",
-      "position": { "x": 1000, "y": 3500 },
-      "name": "Day 5: Urgency",
+      "id": "d5-wait-final",
+      "type": "wait_for_reply",
+      "position": { "x": 600, "y": 9840 },
+      "name": "Day 5 · Wait for Reply → Final (timeout 24h)",
+      "description": "Spec step 56 — timeout 24 hours",
+      "parameters": { "nodeType": "wait_for_reply", "variable_name": "final_reply", "timeout_value": 24, "timeout_unit": "hours", "timeout_ms": 86400000 }
+    },
+    {
+      "id": "d5-cond-final",
+      "type": "condition",
+      "position": { "x": 600, "y": 9980 },
+      "name": "Day 5 · Logic Control → Final Outcome",
+      "description": "Spec step 57 — Not interested→COLD+Sheet Cold→END; TRIAL_STARTED/BOOKED_DEMO→END; No reply→Sheet Complete→END",
       "parameters": {
-        "recipient": "{{senderNumber}}",
-        "message_template": "🎁 We'd love to help you get started.\n\nActivate your *FREE Trial* today and our onboarding team will personally assist you with setup and importing your initial client data.\n\nReady to grow your insurance business?",
-        "interactive_type": "button",
-        "button_params": [
-          { "title": "🚀 Activate Trial", "id": "___btn_activate_d5" },
-          { "title": "📅 Demo", "id": "___btn_demo_d5" },
-          { "title": "📞 Call Me", "id": "___btn_call_d5" }
-        ]
+        "nodeType": "condition",
+        "conditions": [
+          { "id": "d5-notint", "field": "final_reply", "operator": "contains_any", "value": ["Not interested"], "sourceHandle": "handle-cold" },
+          { "id": "d5-trial", "field": "contact.tags", "operator": "has_tag", "value": "TRIAL_STARTED", "sourceHandle": "handle-exit" },
+          { "id": "d5-demo", "field": "contact.tags", "operator": "has_tag", "value": "BOOKED_DEMO", "sourceHandle": "handle-exit" },
+          { "id": "d5-noreply", "field": "__reply_timed_out", "operator": "equals", "value": true, "sourceHandle": "handle-complete" }
+        ],
+        "no_match_handle": "handle-complete"
+      }
+    },
+    { "id": "d5-tag-cold", "type": "add_tag", "position": { "x": 300, "y": 10140 }, "name": "Day 5 · Assign Tag → COLD_LEAD", "description": "Spec step 57 (Not interested)", "parameters": { "nodeType": "add_tag", "tag_name": "COLD_LEAD" } },
+    {
+      "id": "d5-sheet-cold",
+      "type": "save_to_google_sheet",
+      "position": { "x": 300, "y": 10280 },
+      "name": "Day 5 · Google Sheets → Update Stage=Cold",
+      "description": "Spec step 57 (Not interested → Stage=Cold) → END",
+      "parameters": {
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "update",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "column_mappings": [ { "column": "Stage", "value": "Cold" } ]
+      }
+    },
+    {
+      "id": "d5-sheet-complete",
+      "type": "save_to_google_sheet",
+      "position": { "x": 900, "y": 10140 },
+      "name": "Day 5 · Google Sheets → Funnel1 Complete",
+      "description": "Spec step 57 (No reply → Stage=Funnel1 Complete, No Conversion) → END",
+      "parameters": {
+        "nodeType": "save_to_google_sheet",
+        "google_account_id": "__GOOGLE_ACCOUNT_ID__",
+        "spreadsheet_id": "__SPREADSHEET_ID__",
+        "sheet_name": "Leads",
+        "operation": "update",
+        "match_column": "Phone",
+        "match_value": "{{senderNumber}}",
+        "column_mappings": [ { "column": "Stage", "value": "Funnel1 Complete, No Conversion" } ]
       }
     }
   ],
 
   "connections": [
-    { "id": "c1", "source": "trigger-meta-lead", "target": "cond-start-welcome", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c2", "source": "cond-start-welcome", "target": "tag-meta-lead", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c3", "source": "tag-meta-lead", "target": "score-welcome", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c4", "source": "score-welcome", "target": "msg-welcome", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c5", "source": "msg-welcome", "target": "wait-welcome", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c6", "source": "wait-welcome", "target": "cond-welcome-reply", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-1", "source": "trigger-entry", "target": "tag-meta-lead", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-2", "source": "tag-meta-lead", "target": "tag-stage-day0", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-3", "source": "tag-stage-day0", "target": "save-lead-capture", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-4", "source": "save-lead-capture", "target": "sheet-add-row", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-5", "source": "sheet-add-row", "target": "tpl-welcome", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-6", "source": "tpl-welcome", "target": "media-demo-short", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-7", "source": "media-demo-short", "target": "cta-day0-trial", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-8", "source": "cta-day0-trial", "target": "delay-day0-6h", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-9", "source": "delay-day0-6h", "target": "exit-check-day0", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-entry-10", "source": "exit-check-day0", "target": "tag-stage-day1", "sourceHandle": "handle-continue", "targetHandle": "default" },
 
-    { "id": "c7", "source": "cond-welcome-reply", "target": "tag-trial-started", "sourceHandle": "handle-start-trial", "targetHandle": "default" },
-    { "id": "c8", "source": "tag-trial-started", "target": "score-trial", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c9", "source": "score-trial", "target": "tag-hot-lead", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c10", "source": "tag-hot-lead", "target": "msg-trial-confirm", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-1", "source": "tag-stage-day1", "target": "media-pain-awareness", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-2", "source": "media-pain-awareness", "target": "msg-day1-pain", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-3", "source": "msg-day1-pain", "target": "qr-day1-pain", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-4", "source": "qr-day1-pain", "target": "wait-day1-pain", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-5", "source": "wait-day1-pain", "target": "cond-day1-pain-noreply", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-6", "source": "cond-day1-pain-noreply", "target": "d1b-tag-noreply", "sourceHandle": "handle-noreply", "targetHandle": "default" },
+    { "id": "c-d1-7", "source": "cond-day1-pain-noreply", "target": "save-pain-level", "sourceHandle": "handle-continue", "targetHandle": "default" },
+    { "id": "c-d1-8", "source": "save-pain-level", "target": "tag-pain-ack", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-9", "source": "tag-pain-ack", "target": "msg-day1-next", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-10", "source": "msg-day1-next", "target": "sel-day1-next", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-11", "source": "sel-day1-next", "target": "wait-day1-next", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-12", "source": "wait-day1-next", "target": "save-next-action", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-13", "source": "save-next-action", "target": "cond-day1-branch", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1-14", "source": "cond-day1-branch", "target": "b1-tag-trial-request", "sourceHandle": "handle-trial", "targetHandle": "default" },
+    { "id": "c-d1-15", "source": "cond-day1-branch", "target": "b2-sel-slot", "sourceHandle": "handle-demo", "targetHandle": "default" },
+    { "id": "c-d1-16", "source": "cond-day1-branch", "target": "b3-tag-watched", "sourceHandle": "handle-watch", "targetHandle": "default" },
+    { "id": "c-d1-17", "source": "cond-day1-branch", "target": "d1b-tag-noreply", "sourceHandle": "handle-noreply", "targetHandle": "default" },
 
-    { "id": "c11", "source": "cond-welcome-reply", "target": "msg-demo-slots", "sourceHandle": "handle-book-demo", "targetHandle": "default" },
-    { "id": "c12", "source": "msg-demo-slots", "target": "wait-demo-slot", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c13", "source": "wait-demo-slot", "target": "tag-booked-demo", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c14", "source": "tag-booked-demo", "target": "score-demo", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c15", "source": "score-demo", "target": "msg-demo-confirm", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-1", "source": "b1-tag-trial-request", "target": "b1-api-trial", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-2", "source": "b1-api-trial", "target": "b1-tag-trial-started", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-3", "source": "b1-tag-trial-started", "target": "b1-tag-funnel2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-4", "source": "b1-tag-funnel2", "target": "b1-sheet-update", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-5", "source": "b1-sheet-update", "target": "b1-msg-confirm", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b1-6", "source": "b1-msg-confirm", "target": "b1-cta-open", "sourceHandle": "default", "targetHandle": "default" },
 
-    { "id": "c16", "source": "cond-welcome-reply", "target": "delay-6h", "sourceHandle": "handle-try-later", "targetHandle": "default" },
-    { "id": "c17", "source": "delay-6h", "target": "cond-trial-check-d1", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c18", "source": "cond-trial-check-d1", "target": "msg-day1", "sourceHandle": "handle-trial-no", "targetHandle": "default" },
+    { "id": "c-b2-1", "source": "b2-sel-slot", "target": "b2-wait-slot", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-2", "source": "b2-wait-slot", "target": "b2-cond-slot-noreply", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-3", "source": "b2-cond-slot-noreply", "target": "b2-save-slot", "sourceHandle": "handle-continue", "targetHandle": "default" },
+    { "id": "c-b2-4", "source": "b2-save-slot", "target": "b2-cal-event", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-5", "source": "b2-cal-event", "target": "b2-tag-booked", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-6", "source": "b2-tag-booked", "target": "b2-sheet-update", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-7", "source": "b2-sheet-update", "target": "b2-assign-sales", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-8", "source": "b2-assign-sales", "target": "b2-tag-sales-owned", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b2-9", "source": "b2-tag-sales-owned", "target": "b2-msg-confirm", "sourceHandle": "default", "targetHandle": "default" },
 
-    { "id": "c19", "source": "msg-day1", "target": "wait-day1", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c20", "source": "wait-day1", "target": "score-day1", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c21", "source": "score-day1", "target": "msg-trust", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c22", "source": "msg-trust", "target": "wait-trust", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c23", "source": "wait-trust", "target": "cond-trust-reply", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-1", "source": "b3-tag-watched", "target": "b3-msg-watch", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-2", "source": "b3-msg-watch", "target": "b3-media-full", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-3", "source": "b3-media-full", "target": "b3-cta-watch", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-4", "source": "b3-cta-watch", "target": "b3-delay-30m", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-5", "source": "b3-delay-30m", "target": "b3-msg-feature", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-6", "source": "b3-msg-feature", "target": "b3-sel-feature", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-7", "source": "b3-sel-feature", "target": "b3-wait-feature", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-8", "source": "b3-wait-feature", "target": "b3-save-feature", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-9", "source": "b3-save-feature", "target": "b3-cond-feature", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-10", "source": "b3-cond-feature", "target": "b3-tag-ai", "sourceHandle": "handle-ai", "targetHandle": "default" },
+    { "id": "c-b3-11", "source": "b3-cond-feature", "target": "b3-tag-renewal", "sourceHandle": "handle-renewal", "targetHandle": "default" },
+    { "id": "c-b3-12", "source": "b3-cond-feature", "target": "b3-tag-app", "sourceHandle": "handle-app", "targetHandle": "default" },
+    { "id": "c-b3-13", "source": "b3-cond-feature", "target": "b3-tag-crm", "sourceHandle": "handle-crm", "targetHandle": "default" },
+    { "id": "c-b3-14", "source": "b3-cond-feature", "target": "tag-stage-day2", "sourceHandle": "handle-skip", "targetHandle": "default" },
+    { "id": "c-b3-15", "source": "b3-tag-ai", "target": "tag-stage-day2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-16", "source": "b3-tag-renewal", "target": "tag-stage-day2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-17", "source": "b3-tag-app", "target": "tag-stage-day2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-b3-18", "source": "b3-tag-crm", "target": "tag-stage-day2", "sourceHandle": "default", "targetHandle": "default" },
 
-    { "id": "c24", "source": "cond-trust-reply", "target": "tag-trial-started", "sourceHandle": "handle-d1-trial", "targetHandle": "default" },
-    { "id": "c25", "source": "cond-trust-reply", "target": "msg-demo-slots", "sourceHandle": "handle-d1-demo", "targetHandle": "default" },
-    { "id": "c26", "source": "cond-trust-reply", "target": "msg-watch-demo", "sourceHandle": "handle-d1-watch", "targetHandle": "default" },
+    { "id": "c-d1b-1", "source": "d1b-tag-noreply", "target": "d1b-delay-24h", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1b-2", "source": "d1b-delay-24h", "target": "d1b-cond-engaged", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1b-3", "source": "d1b-cond-engaged", "target": "tag-stage-day2", "sourceHandle": "handle-engaged", "targetHandle": "default" },
+    { "id": "c-d1b-4", "source": "d1b-cond-engaged", "target": "d1b-msg-nudge", "sourceHandle": "handle-noreply", "targetHandle": "default" },
+    { "id": "c-d1b-5", "source": "d1b-msg-nudge", "target": "d1b-qr-nudge", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1b-6", "source": "d1b-qr-nudge", "target": "d1b-wait-nudge", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1b-7", "source": "d1b-wait-nudge", "target": "d1b-cond-nudge", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d1b-8", "source": "d1b-cond-nudge", "target": "b3-msg-watch", "sourceHandle": "handle-yes", "targetHandle": "default" },
+    { "id": "c-d1b-9", "source": "d1b-cond-nudge", "target": "tag-stage-day2", "sourceHandle": "handle-continue", "targetHandle": "default" },
 
-    { "id": "c27", "source": "msg-watch-demo", "target": "tag-watched-demo", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c28", "source": "tag-watched-demo", "target": "score-watch", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c29", "source": "score-watch", "target": "msg-engagement", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c30", "source": "msg-engagement", "target": "wait-engagement", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c31", "source": "wait-engagement", "target": "cond-interest", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-1", "source": "tag-stage-day2", "target": "cond-day2-interest", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-2", "source": "cond-day2-interest", "target": "d2-msg-ai", "sourceHandle": "handle-ai", "targetHandle": "default" },
+    { "id": "c-d2-3", "source": "cond-day2-interest", "target": "d2-msg-renewal", "sourceHandle": "handle-renewal", "targetHandle": "default" },
+    { "id": "c-d2-4", "source": "cond-day2-interest", "target": "d2-msg-app", "sourceHandle": "handle-app", "targetHandle": "default" },
+    { "id": "c-d2-5", "source": "cond-day2-interest", "target": "d2-msg-crm", "sourceHandle": "handle-crm", "targetHandle": "default" },
+    { "id": "c-d2-6", "source": "cond-day2-interest", "target": "d2-msg-overview", "sourceHandle": "handle-default", "targetHandle": "default" },
+    { "id": "c-d2-7", "source": "d2-msg-ai", "target": "d2-media-ai", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-8", "source": "d2-media-ai", "target": "d2-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-9", "source": "d2-msg-renewal", "target": "d2-media-renewal", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-10", "source": "d2-media-renewal", "target": "d2-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-11", "source": "d2-msg-app", "target": "d2-media-app", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-12", "source": "d2-media-app", "target": "d2-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-13", "source": "d2-msg-crm", "target": "d2-media-crm", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-14", "source": "d2-media-crm", "target": "d2-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-15", "source": "d2-msg-overview", "target": "d2-media-overview", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-16", "source": "d2-media-overview", "target": "d2-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-17", "source": "d2-cta", "target": "d2-delay-24h", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-18", "source": "d2-delay-24h", "target": "exit-check-day2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d2-19", "source": "exit-check-day2", "target": "tag-stage-day3", "sourceHandle": "handle-continue", "targetHandle": "default" },
 
-    { "id": "c32", "source": "cond-interest", "target": "tag-ai", "sourceHandle": "handle-ai", "targetHandle": "default" },
-    { "id": "c33", "source": "cond-interest", "target": "tag-renewal", "sourceHandle": "handle-renewal", "targetHandle": "default" },
-    { "id": "c34", "source": "cond-interest", "target": "tag-app", "sourceHandle": "handle-app", "targetHandle": "default" },
-    { "id": "c35", "source": "cond-interest", "target": "tag-crm", "sourceHandle": "handle-crm", "targetHandle": "default" },
+    { "id": "c-d3-1", "source": "tag-stage-day3", "target": "d3-msg-story", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-2", "source": "d3-msg-story", "target": "d3-media-rakesh", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-3", "source": "d3-media-rakesh", "target": "d3-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-4", "source": "d3-cta", "target": "d3-delay-24h", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-5", "source": "d3-delay-24h", "target": "exit-check-day3", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-6", "source": "exit-check-day3", "target": "grade-cond", "sourceHandle": "handle-continue", "targetHandle": "default" },
+    { "id": "c-d3-7", "source": "grade-cond", "target": "grade-tag-hot", "sourceHandle": "handle-hot", "targetHandle": "default" },
+    { "id": "c-d3-8", "source": "grade-cond", "target": "grade-tag-warm", "sourceHandle": "handle-warm", "targetHandle": "default" },
+    { "id": "c-d3-9", "source": "grade-cond", "target": "grade-tag-cold", "sourceHandle": "handle-cold", "targetHandle": "default" },
+    { "id": "c-d3-10", "source": "grade-tag-hot", "target": "grade-assign-sales", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-11", "source": "grade-assign-sales", "target": "grade-tag-sales-owned", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-12", "source": "grade-tag-sales-owned", "target": "grade-sheet-update", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-13", "source": "grade-tag-warm", "target": "grade-sheet-update", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-14", "source": "grade-tag-cold", "target": "grade-sheet-update", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d3-15", "source": "grade-sheet-update", "target": "tag-stage-day4", "sourceHandle": "default", "targetHandle": "default" },
 
-    { "id": "c36", "source": "tag-ai", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c37", "source": "tag-renewal", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c38", "source": "tag-app", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c39", "source": "tag-crm", "target": "delay-24h-d2", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-1", "source": "tag-stage-day4", "target": "d4-msg-intro", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-2", "source": "d4-msg-intro", "target": "d4-sel-objection", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-3", "source": "d4-sel-objection", "target": "d4-wait-objection", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-4", "source": "d4-wait-objection", "target": "d4-save-objection", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-5", "source": "d4-save-objection", "target": "d4-cond-objection", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-6", "source": "d4-cond-objection", "target": "d4-obj-cost-tag", "sourceHandle": "handle-cost", "targetHandle": "default" },
+    { "id": "c-d4-7", "source": "d4-cond-objection", "target": "d4-obj-time-tag", "sourceHandle": "handle-time", "targetHandle": "default" },
+    { "id": "c-d4-8", "source": "d4-cond-objection", "target": "d4-obj-value-tag", "sourceHandle": "handle-value", "targetHandle": "default" },
+    { "id": "c-d4-9", "source": "d4-cond-objection", "target": "d4-cta", "sourceHandle": "handle-skip", "targetHandle": "default" },
+    { "id": "c-d4-10", "source": "d4-obj-cost-tag", "target": "d4-obj-cost-msg", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-11", "source": "d4-obj-cost-msg", "target": "d4-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-12", "source": "d4-obj-time-tag", "target": "d4-obj-time-msg", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-13", "source": "d4-obj-time-msg", "target": "d4-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-14", "source": "d4-obj-value-tag", "target": "d4-obj-value-msg", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-15", "source": "d4-obj-value-msg", "target": "d4-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-16", "source": "d4-cta", "target": "d4-delay-24h", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-17", "source": "d4-delay-24h", "target": "exit-check-day4", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d4-18", "source": "exit-check-day4", "target": "tag-stage-day5", "sourceHandle": "handle-continue", "targetHandle": "default" },
 
-    { "id": "c40", "source": "delay-24h-d2", "target": "cond-trial-check-d2", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c41", "source": "cond-trial-check-d2", "target": "cond-d2-personalized", "sourceHandle": "handle-trial-no-d2", "targetHandle": "default" },
-
-    { "id": "c42", "source": "cond-d2-personalized", "target": "msg-d2-ai", "sourceHandle": "handle-d2-ai", "targetHandle": "default" },
-    { "id": "c43", "source": "cond-d2-personalized", "target": "msg-d2-renewal", "sourceHandle": "handle-d2-renewal", "targetHandle": "default" },
-    { "id": "c44", "source": "cond-d2-personalized", "target": "msg-d2-app", "sourceHandle": "handle-d2-app", "targetHandle": "default" },
-    { "id": "c45", "source": "cond-d2-personalized", "target": "msg-d2-crm", "sourceHandle": "handle-d2-crm", "targetHandle": "default" },
-
-    { "id": "c46", "source": "msg-d2-ai", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c47", "source": "msg-d2-renewal", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c48", "source": "msg-d2-app", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c49", "source": "msg-d2-crm", "target": "delay-24h-d3", "sourceHandle": "default", "targetHandle": "default" },
-
-    { "id": "c50", "source": "delay-24h-d3", "target": "cond-trial-check-d3", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c51", "source": "cond-trial-check-d3", "target": "msg-day3", "sourceHandle": "handle-trial-no-d3", "targetHandle": "default" },
-
-    { "id": "c52", "source": "msg-day3", "target": "delay-24h-d4", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c53", "source": "delay-24h-d4", "target": "cond-trial-check-d4", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c54", "source": "cond-trial-check-d4", "target": "msg-day4", "sourceHandle": "handle-trial-no-d4", "targetHandle": "default" },
-
-    { "id": "c55", "source": "msg-day4", "target": "delay-24h-d5", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c56", "source": "delay-24h-d5", "target": "cond-trial-check-d5", "sourceHandle": "default", "targetHandle": "default" },
-    { "id": "c57", "source": "cond-trial-check-d5", "target": "msg-day5", "sourceHandle": "handle-trial-no-d5", "targetHandle": "default" }
+    { "id": "c-d5-1", "source": "tag-stage-day5", "target": "d5-msg-final", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-2", "source": "d5-msg-final", "target": "d5-cta", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-3", "source": "d5-cta", "target": "d5-qr-notinterested", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-4", "source": "d5-qr-notinterested", "target": "d5-wait-final", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-5", "source": "d5-wait-final", "target": "d5-cond-final", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-6", "source": "d5-cond-final", "target": "d5-tag-cold", "sourceHandle": "handle-cold", "targetHandle": "default" },
+    { "id": "c-d5-7", "source": "d5-tag-cold", "target": "d5-sheet-cold", "sourceHandle": "default", "targetHandle": "default" },
+    { "id": "c-d5-8", "source": "d5-cond-final", "target": "d5-sheet-complete", "sourceHandle": "handle-complete", "targetHandle": "default" }
   ],
 
   "settings": {
     "execution_timeout": 500000,
-    "max_executions": 10000,
+    "max_executions": 100000,
     "error_handling": "continue",
     "retry_attempts": 3
   },
 
   "tags_required": [
-    "META_LEAD", "HOT_LEAD", "WARM_LEAD", "COLD_LEAD",
-    "TRIAL_STARTED", "BOOKED_DEMO", "WATCHED_DEMO",
+    "META_LEAD",
+    "STAGE_DAY0", "STAGE_DAY1", "STAGE_DAY2", "STAGE_DAY3", "STAGE_DAY4", "STAGE_DAY5",
+    "STAGE_FUNNEL2",
+    "TRIAL_REQUEST", "TRIAL_STARTED", "BOOKED_DEMO", "WATCHED_DEMO", "SALES_OWNED",
+    "PAIN_ACKNOWLEDGED", "NO_REPLY_DAY1",
     "AI_INTEREST", "RENEWAL_INTEREST", "APP_INTEREST", "CRM_INTEREST",
-    "NO_REPLY"
-  ],
-
-  "lead_scoring": {
-    "rules": [
-      { "action": "Opened Welcome Message", "score": 5 },
-      { "action": "Replied to Day 1 Question", "score": 10 },
-      { "action": "Watched Demo", "score": 15 },
-      { "action": "Clicked Trial Link", "score": 25 },
-      { "action": "Booked Demo", "score": 40 },
-      { "action": "Started Trial", "score": 100 }
-    ],
-    "thresholds": {
-      "HOT_LEAD": 50,
-      "WARM_LEAD": 20,
-      "COLD_LEAD": 0
-    }
-  }
+    "OBJECTION_COST", "OBJECTION_TIME", "OBJECTION_VALUE",
+    "HOT_LEAD", "WARM_LEAD", "COLD_LEAD"
+  ]
 }

@@ -33,7 +33,7 @@ if (!userId) {
 }
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/chatwave';
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/chatwave';
 
 async function main() {
   console.log('🚀 Insurance Desk Funnel 1 Seeder');
@@ -62,17 +62,30 @@ async function main() {
 
   const tagColors = {
     META_LEAD: '#6366f1',
-    HOT_LEAD: '#22c55e',
-    WARM_LEAD: '#f59e0b',
-    COLD_LEAD: '#ef4444',
+    STAGE_DAY0: '#94a3b8',
+    STAGE_DAY1: '#94a3b8',
+    STAGE_DAY2: '#94a3b8',
+    STAGE_DAY3: '#94a3b8',
+    STAGE_DAY4: '#94a3b8',
+    STAGE_DAY5: '#94a3b8',
+    STAGE_FUNNEL2: '#0ea5e9',
+    TRIAL_REQUEST: '#22d3ee',
     TRIAL_STARTED: '#06b6d4',
     BOOKED_DEMO: '#8b5cf6',
     WATCHED_DEMO: '#3b82f6',
+    SALES_OWNED: '#a855f7',
+    PAIN_ACKNOWLEDGED: '#eab308',
+    NO_REPLY_DAY1: '#9ca3af',
     AI_INTEREST: '#f97316',
     RENEWAL_INTEREST: '#14b8a6',
     APP_INTEREST: '#ec4899',
     CRM_INTEREST: '#84cc16',
-    NO_REPLY: '#9ca3af'
+    OBJECTION_COST: '#f43f5e',
+    OBJECTION_TIME: '#fb923c',
+    OBJECTION_VALUE: '#e879f9',
+    HOT_LEAD: '#22c55e',
+    WARM_LEAD: '#f59e0b',
+    COLD_LEAD: '#ef4444'
   };
 
   let tagsCreated = 0;
@@ -112,8 +125,10 @@ async function main() {
     existingFlow.connections = funnelData.connections;
     existingFlow.triggers = funnelData.triggers;
     existingFlow.settings = funnelData.settings;
+    existingFlow.lead_scoring_rules = funnelData.lead_scoring_rules || {};
     existingFlow.description = funnelData.description;
     existingFlow.is_active = true;
+    existingFlow.markModified('lead_scoring_rules');
     await existingFlow.save();
 
     console.log(`   ✅ Flow updated successfully`);
@@ -131,7 +146,8 @@ async function main() {
       nodes: funnelData.nodes,
       connections: funnelData.connections,
       triggers: funnelData.triggers,
-      settings: funnelData.settings
+      settings: funnelData.settings,
+      lead_scoring_rules: funnelData.lead_scoring_rules || {}
     });
 
     console.log(`   ✅ Flow created successfully`);

@@ -45,12 +45,13 @@ const initializeAutomationScheduler = async () => {
         _automationSchedulerWorker = new Worker(
             'automation-scheduler',
             async (job) => {
-                const { executionId, flowId, nextNodeId, userId } = job.data;
+                const { executionId, flowId, nextNodeId, userId, jobType, waitNodeId } = job.data;
 
                 console.log(`=== AUTOMATION SCHEDULER JOB ${job.id} ===`, {
                     executionId,
                     flowId,
                     nextNodeId,
+                    jobType: jobType || 'delay_resume',
                     timestamp: new Date().toISOString()
                 });
 
@@ -58,7 +59,11 @@ const initializeAutomationScheduler = async () => {
                     // Dynamic import to avoid circular dependency
                     const { default: automationEngine } = await import('../utils/automation-engine.js');
 
-                    await automationEngine.resumeFromDelay(executionId, flowId, nextNodeId, userId);
+                    if (jobType === 'reply_timeout') {
+                        await automationEngine.resumeFromReplyTimeout(executionId, flowId, nextNodeId, waitNodeId, userId);
+                    } else {
+                        await automationEngine.resumeFromDelay(executionId, flowId, nextNodeId, userId);
+                    }
 
                     console.log(`=== COMPLETED AUTOMATION SCHEDULER JOB ${job.id} ===`, {
                         executionId,
@@ -164,6 +169,40 @@ export const scheduleDelayedResume = async ({ executionId, flowId, nextNodeId, u
 };
 
 /**
+ * Schedule a wait_for_reply timeout. When it fires, the execution resumes down
+ * the same next node but with a __reply_timed_out flag set — but only if no
+ * reply arrived in the meantime (verified by the engine before resuming).
+ * @param {Object} params
+ * @param {string} params.executionId
+ * @param {string} params.flowId
+ * @param {string} params.waitNodeId - The wait_for_reply node id being timed out
+ * @param {string} params.nextNodeId - The node to resume from on timeout
+ * @param {string} params.userId
+ * @param {number} params.delayMs
+ * @returns {Promise<Object>} BullMQ job
+ */
+export const scheduleReplyTimeout = async ({ executionId, flowId, waitNodeId, nextNodeId, userId, delayMs }) => {
+    const { queue } = await initializeAutomationScheduler();
+
+    const jobName = `reply-timeout-${executionId}`;
+    const job = await queue.add(jobName, {
+        jobType: 'reply_timeout',
+        executionId,
+        flowId,
+        waitNodeId,
+        nextNodeId,
+        userId
+    }, {
+        delay: delayMs,
+        jobId: `reply-timeout-${executionId}-${Date.now()}`
+    });
+
+    console.log(`[AutomationScheduler] Scheduled reply timeout in ${delayMs}ms (${Math.round(delayMs / 3600000)}h) for node ${waitNodeId}. Job: ${job.id}`);
+
+    return job;
+};
+
+/**
  * Cancel a scheduled delay job.
  * @param {string} jobId - The BullMQ job ID to cancel
  */
@@ -192,6 +231,7 @@ export const getAutomationSchedulerQueue = async () => {
 
 export default {
     scheduleDelayedResume,
+    scheduleReplyTimeout,
     cancelDelayedResume,
     getAutomationSchedulerQueue
 };

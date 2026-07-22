@@ -107,6 +107,13 @@ const automationFlowSchema = new mongoose.Schema({
     error_handling: { type: String, default: 'stop' }, 
     retry_attempts: { type: Number, default: 3 }
   },
+  // Side-trigger lead scoring: map of tag label -> points to add to the
+  // contact's lead_score whenever that tag is NEWLY assigned anywhere in the
+  // flow. Fires automatically from the add_tag node (not inline in the graph).
+  lead_scoring_rules: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   statistics: {
     total_executions: { type: Number, default: 0 },
     successful_executions: { type: Number, default: 0 },

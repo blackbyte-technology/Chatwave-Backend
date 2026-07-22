@@ -4,7 +4,7 @@ import { getSheetsClient, getCalendarClient, handleGoogleApiError } from './goog
 import { PROVIDER_TYPES } from '../services/whatsapp/unified-whatsapp.service.js';
 import appointmentService from '../services/appointment.service.js';
 import automationCache from './automation-cache.js';
-import { scheduleDelayedResume, cancelDelayedResume } from '../queues/automation-scheduler-queue.js';
+import { scheduleDelayedResume, scheduleReplyTimeout, cancelDelayedResume } from '../queues/automation-scheduler-queue.js';
 import { v4 as uuidv4 } from 'uuid';
 
 class AutomationEngine {
@@ -329,7 +329,7 @@ class AutomationEngine {
         if (nodeResult.status === 'waiting') {
           return { success: true, status: 'waiting', output: currentData, executionLog };
         }
-        if (nodeResult.success) {
+        if (nodeResult.success || flow.settings?.error_handling === 'continue') {
           currentData = {
             ...currentData,
             ...nodeResult.output,
@@ -404,7 +404,7 @@ class AutomationEngine {
       if (nodeResult.status === 'waiting') {
         return { success: true, status: 'waiting', output: currentData, executionLog };
       }
-      if (nodeResult.success) {
+      if (nodeResult.success || flow.settings?.error_handling === 'continue') {
         const updatedData = {
           ...currentData,
           ...nodeResult.output,
@@ -480,7 +480,7 @@ class AutomationEngine {
           result = await this.executeSendTemplateNode(node, inputData);
           break;
         case 'add_tag':
-          result = await this.executeAddTagNode(node, inputData);
+          result = await this.executeAddTagNode(node, inputData, flow);
           break;
         case 'cta_button':
           result = await this.executeSendCtaNode(node, inputData);
@@ -1672,6 +1672,7 @@ class AutomationEngine {
           if (contact) {
             inputData.contact = contact;
             inputData._resolvedTagNames = (contact.tags || []).map(t => t.label || t);
+            inputData.lead_score = this.getContactLeadScore(contact);
           }
         } catch (e) {
           console.warn('[AutomationEngine] Could not refresh contact data:', e.message);
@@ -1717,7 +1718,7 @@ class AutomationEngine {
         return;
       }
 
-      if (nodeResult.success) {
+      if (nodeResult.success || flow.settings?.error_handling === 'continue') {
         const updatedData = { ...inputData, ...nodeResult.output };
         const connResult = await this.processConnectedNodes(flow, nextNode, updatedData, executionLog, inputData);
         if (connResult && connResult.status === 'waiting') {
@@ -1751,6 +1752,129 @@ class AutomationEngine {
 
 
   /**
+   * Resume an execution because a wait_for_reply TIMED OUT (no reply arrived).
+   * Fires the SAME next node as a reply would, but with __reply_timed_out=true
+   * so the following Logic Control takes the no-reply branch.
+   *
+   * Guarded so it is a no-op if a reply already advanced the execution:
+   * only proceeds when the execution is still `waiting` on this exact wait node.
+   */
+  async resumeFromReplyTimeout(executionId, flowId, nextNodeId, waitNodeId, userId) {
+    console.log(`[AutomationEngine] Reply timeout fired: execution=${executionId}, waitNode=${waitNodeId}, nextNode=${nextNodeId}`);
+
+    try {
+      const execution = await AutomationExecution.findById(executionId);
+      if (!execution) {
+        console.error(`[AutomationEngine] Execution ${executionId} not found for reply timeout`);
+        return;
+      }
+
+      // Race guard: if the reply already arrived, the execution is no longer
+      // waiting on this node (status changed or waiting on a different node).
+      if (execution.status !== 'waiting' || String(execution.waiting_for_node_id) !== String(waitNodeId)) {
+        console.log(`[AutomationEngine] Reply timeout skipped — execution ${executionId} is ${execution.status} on node ${execution.waiting_for_node_id} (expected waiting on ${waitNodeId}). Reply likely already handled.`);
+        return;
+      }
+
+      const flow = await AutomationFlow.findById(flowId).populate('user_id');
+      if (!flow || !flow.is_active || flow.deleted_at) {
+        console.log(`[AutomationEngine] Flow ${flowId} inactive/deleted. Cancelling execution on reply timeout.`);
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'cancelled',
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const inputData = execution.input_data || {};
+      inputData.__reply_timed_out = true;
+
+      // Refresh contact tags + lead score for downstream conditions.
+      if (inputData.contactId) {
+        try {
+          const contact = await Contact.findById(inputData.contactId).populate('tags', 'label').lean();
+          if (contact) {
+            inputData.contact = contact;
+            inputData._resolvedTagNames = (contact.tags || []).map(t => t.label || t);
+            inputData.lead_score = this.getContactLeadScore(contact);
+          }
+        } catch (e) {
+          console.warn('[AutomationEngine] Could not refresh contact data on reply timeout:', e.message);
+        }
+      }
+
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: 'running',
+        scheduled_resume_at: null,
+        reply_timeout_job_id: null,
+        contact_identifier: null
+      });
+
+      if (!nextNodeId) {
+        console.log('[AutomationEngine] No next node after reply timeout. Completing execution.');
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'success',
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const nextNode = flow.nodes.find(n => n.id === nextNodeId);
+      if (!nextNode) {
+        console.error(`[AutomationEngine] Next node ${nextNodeId} not found for reply timeout`);
+        await AutomationExecution.findByIdAndUpdate(executionId, {
+          status: 'failed',
+          error: `Node ${nextNodeId} not found`,
+          completed_at: new Date()
+        });
+        return;
+      }
+
+      const executionLog = execution.execution_log || [];
+      const execUuid = uuidv4();
+      this.runningExecutions.set(execUuid, execution._id);
+
+      const startTime = Date.now();
+      const nodeResult = await this.executeNode(nextNode, flow, inputData, executionLog);
+
+      if (nodeResult.status === 'waiting') {
+        this.runningExecutions.delete(execUuid);
+        return;
+      }
+
+      if (nodeResult.success || flow.settings?.error_handling === 'continue') {
+        const updatedData = { ...inputData, ...nodeResult.output };
+        const connResult = await this.processConnectedNodes(flow, nextNode, updatedData, executionLog, inputData);
+        if (connResult && connResult.status === 'waiting') {
+          this.runningExecutions.delete(execUuid);
+          return;
+        }
+      }
+
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: nodeResult.success ? 'success' : 'failed',
+        output_data: inputData,
+        execution_time: Date.now() - startTime,
+        completed_at: new Date(),
+        execution_log: executionLog
+      });
+
+      await this.updateFlowStatistics(flow._id, nodeResult.success);
+      this.runningExecutions.delete(execUuid);
+
+      console.log(`[AutomationEngine] Reply timeout resume completed for execution ${executionId}`);
+    } catch (error) {
+      console.error(`[AutomationEngine] Error resuming from reply timeout:`, error);
+      await AutomationExecution.findByIdAndUpdate(executionId, {
+        status: 'failed',
+        error: error.message,
+        completed_at: new Date()
+      });
+    }
+  }
+
+
+  /**
    * Pre-resolve tag names for a contact before evaluating conditions.
    * This allows has_tag/not_has_tag operators to work.
    */
@@ -1762,9 +1886,10 @@ class AutomationEngine {
 
     try {
       const contact = await Contact.findById(contactId).populate('tags', 'label').lean();
-      if (contact && contact.tags) {
-        inputData._resolvedTagNames = contact.tags.map(t => t.label || t);
+      if (contact) {
+        inputData._resolvedTagNames = (contact.tags || []).map(t => t.label || t);
         inputData.contact = contact;
+        inputData.lead_score = this.getContactLeadScore(contact);
       }
     } catch (e) {
       console.warn('[AutomationEngine] Could not resolve tag names:', e.message);
@@ -1809,17 +1934,89 @@ class AutomationEngine {
       return { success: false, error: 'Could not find active execution' };
     }
 
+    // A fresh wait starts with no timeout flag; clear any leftover flag so the
+    // following Logic Control sees the correct state for THIS wait.
+    const cleanedInput = { ...inputData, __reply_timed_out: false };
+
+    // Optional reply timeout. When configured, we schedule a persistent BullMQ
+    // job that resumes the SAME next node with __reply_timed_out=true — but only
+    // if no reply arrived first (verified in resumeFromReplyTimeout).
+    const timeoutMs = this.resolveTimeoutMs(node.parameters);
+    let replyTimeoutJobId = null;
+    let scheduledResumeAt = null;
+
+    if (timeoutMs && timeoutMs > 0) {
+      try {
+        const userId = inputData.userId || inputData.user_id;
+        const job = await scheduleReplyTimeout({
+          executionId: executionId.toString(),
+          flowId: flow._id.toString(),
+          waitNodeId: node.id,
+          nextNodeId,
+          userId: userId?.toString(),
+          delayMs: timeoutMs
+        });
+        replyTimeoutJobId = job?.id || null;
+        scheduledResumeAt = new Date(Date.now() + timeoutMs);
+      } catch (err) {
+        console.warn(`[AutomationEngine] Could not schedule reply timeout for ${node.id}:`, err.message);
+      }
+    }
+
     await AutomationExecution.findByIdAndUpdate(executionId, {
       status: 'waiting',
       next_node_id: nextNodeId,
       waiting_for_node_id: node.id,
       contact_identifier: inputData.senderNumber,
-      input_data: inputData
+      input_data: cleanedInput,
+      reply_timeout_job_id: replyTimeoutJobId,
+      scheduled_resume_at: scheduledResumeAt
     });
 
-    console.log(`Execution ${executionId} is now waiting for reply from ${inputData.senderNumber}. Next node: ${nextNodeId}`);
+    console.log(`Execution ${executionId} is now waiting for reply from ${inputData.senderNumber}. Next node: ${nextNodeId}${timeoutMs ? ` (timeout ${Math.round(timeoutMs / 3600000)}h)` : ''}`);
 
-    return { success: true, status: 'waiting', output: inputData };
+    return { success: true, status: 'waiting', output: cleanedInput };
+  }
+
+
+  /**
+   * Resolve a timeout duration (ms) from a node's parameters. Supports
+   * timeout_ms, or timeout_value + timeout_unit (seconds/minutes/hours/days).
+   */
+  resolveTimeoutMs(parameters = {}) {
+    const { timeout_ms, timeout_value, timeout_unit } = parameters || {};
+    if (timeout_ms && Number(timeout_ms) > 0) {
+      return Number(timeout_ms);
+    }
+    if (timeout_value && timeout_unit) {
+      const v = Number(timeout_value);
+      switch (timeout_unit) {
+        case 'seconds': return v * 1000;
+        case 'minutes': return v * 60 * 1000;
+        case 'hours': return v * 60 * 60 * 1000;
+        case 'days': return v * 24 * 60 * 60 * 1000;
+        default: return v * 1000;
+      }
+    }
+    return 0;
+  }
+
+
+  /**
+   * Read a contact's numeric lead_score, tolerating both Map (hydrated doc)
+   * and plain-object (lean) custom_fields shapes.
+   */
+  getContactLeadScore(contact) {
+    if (!contact || !contact.custom_fields) return 0;
+    const cf = contact.custom_fields;
+    let raw;
+    if (typeof cf.get === 'function') {
+      raw = cf.get('lead_score');
+    } else {
+      raw = cf.lead_score;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
   }
 
 
@@ -1842,12 +2039,27 @@ class AutomationEngine {
       ...execution.input_data,
       [variableName]: messageText,
       last_message: messageText,
-      messagePayload
+      messagePayload,
+      // Reply arrived → this is NOT a timeout. The following Logic Control uses
+      // this to distinguish reply vs no-reply branches.
+      __reply_timed_out: false
     };
+
+    // Refresh contact tags + lead score so downstream conditions are accurate.
+    delete currentData._resolvedTagNames;
+    await this.resolveTagNamesForContact(currentData);
+
+    // A reply arrived — cancel any pending timeout job so the no-reply branch
+    // does not also fire (prevents duplicate/racing execution).
+    if (execution.reply_timeout_job_id) {
+      await cancelDelayedResume(execution.reply_timeout_job_id);
+    }
 
     await AutomationExecution.findByIdAndUpdate(execution._id, {
       status: 'running',
-      contact_identifier: null
+      contact_identifier: null,
+      reply_timeout_job_id: null,
+      scheduled_resume_at: null
     });
 
     const nextNodeId = execution.next_node_id;
@@ -1877,7 +2089,7 @@ class AutomationEngine {
        return { success: true };
     }
 
-    if (nodeResult.success) {
+    if (nodeResult.success || flow.settings?.error_handling === 'continue') {
       const updatedData = {
         ...currentData,
         ...nodeResult.output
@@ -1936,7 +2148,7 @@ class AutomationEngine {
     }
   }
 
-  async executeAddTagNode(node, inputData) {
+  async executeAddTagNode(node, inputData, flow = null) {
     const { tag_id, tag_name } = node.parameters || {};
     const contactId = inputData.contactId;
 
@@ -1945,11 +2157,11 @@ class AutomationEngine {
     }
 
     try {
+      const userId = inputData.userId || inputData.user_id;
       let tag;
       if (tag_id) {
         tag = await Tag.findById(tag_id);
       } else if (tag_name) {
-        const userId = inputData.userId || inputData.user_id;
         tag = await Tag.findOne({ label: tag_name, created_by: userId, deleted_at: null });
 
         if (!tag) {
@@ -1965,6 +2177,13 @@ class AutomationEngine {
         return { success: false, output: inputData, error: 'Tag not found and could not be created' };
       }
 
+      // Determine whether the tag is NEWLY assigned. Side-trigger lead scoring
+      // must fire only once per tag, so we score only on a genuinely new tag.
+      // This also prevents duplicate scoring if a node is re-entered.
+      const contactBefore = await Contact.findById(contactId).select('tags').lean();
+      const alreadyHadTag = (contactBefore?.tags || []).some(t => String(t) === String(tag._id));
+
+      // Idempotent add (no duplicate tags).
       await Contact.findByIdAndUpdate(contactId, {
         $addToSet: { tags: tag._id }
       });
@@ -1975,8 +2194,31 @@ class AutomationEngine {
         { upsert: true }
       );
 
-      console.log(`[add_tag] Added tag "${tag.label}" to contact ${contactId}`);
-      return { success: true, output: { ...inputData, last_tag_added: tag.label } };
+      let output = { ...inputData, last_tag_added: tag.label };
+
+      // Side-trigger lead scoring: if this flow defines points for this tag and
+      // the tag was newly assigned, increment the contact's lead_score. Runs
+      // "in parallel" off the tag assignment, not as an inline graph node.
+      const rules = flow?.lead_scoring_rules || null;
+      const points = rules ? (rules[tag.label] ?? rules.get?.(tag.label)) : undefined;
+      if (!alreadyHadTag && points && Number(points) !== 0) {
+        try {
+          await Contact.updateOne(
+            { _id: contactId, created_by: userId, deleted_at: null },
+            { $inc: { 'custom_fields.lead_score': Number(points) } }
+          );
+          const refreshed = await Contact.findById(contactId).lean();
+          const newScore = this.getContactLeadScore(refreshed);
+          output.lead_score = newScore;
+          output.contact = refreshed;
+          console.log(`[add_tag] Lead scoring: +${points} for "${tag.label}" → total ${newScore} (contact ${contactId})`);
+        } catch (scoreErr) {
+          console.warn(`[add_tag] Lead scoring failed for "${tag.label}":`, scoreErr.message);
+        }
+      }
+
+      console.log(`[add_tag] Added tag "${tag.label}" to contact ${contactId}${alreadyHadTag ? ' (already present)' : ''}`);
+      return { success: true, output };
     } catch (error) {
       console.error(`[add_tag] Error:`, error);
       return { success: false, output: inputData, error: error.message };
@@ -2059,8 +2301,34 @@ class AutomationEngine {
   }
 
 
+  /**
+   * Convert a 0-based column index to an A1 column letter (0->A, 26->AA).
+   */
+  columnIndexToLetter(index) {
+    let letter = '';
+    let n = index;
+    while (n >= 0) {
+      letter = String.fromCharCode((n % 26) + 65) + letter;
+      n = Math.floor(n / 26) - 1;
+    }
+    return letter;
+  }
+
   async executeSaveToGoogleSheetNode(node, inputData) {
-    const { google_account_id, spreadsheet_id, sheet_name = 'Sheet1', column_mappings } = node.parameters || {};
+    const {
+      google_account_id,
+      spreadsheet_id,
+      sheet_name = 'Sheet1',
+      column_mappings,
+      // operation: 'append' (default) | 'upsert' | 'update'
+      // - append: always add a new row
+      // - upsert: update the row whose match_column == match_value, else append
+      // - update: update the matching row only (no-op + warning if not found)
+      operation = 'append',
+      match_column,
+      match_value,
+      headers
+    } = node.parameters || {};
 
     if (!google_account_id || !spreadsheet_id) {
       return { success: false, output: inputData, error: 'google_account_id and spreadsheet_id are required' };
@@ -2069,37 +2337,137 @@ class AutomationEngine {
     try {
       const sheets = await getSheetsClient(google_account_id);
 
-      const spreadsheet = await sheets.spreadsheets.get({
-        spreadsheetId: spreadsheet_id
-      });
-
+      const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: spreadsheet_id });
       const sheetNames = spreadsheet.data.sheets.map(s => s.properties.title);
-      console.log(`[google_sheet] Available sheets in ${spreadsheet_id}:`, sheetNames);
-
       const targetSheet = sheetNames.find(name => name.trim() === sheet_name.trim()) || sheetNames[0];
-      console.log(`[google_sheet] Using sheet: "${targetSheet}" (Requested: "${sheet_name}")`);
+      console.log(`[google_sheet] Using sheet: "${targetSheet}" (Requested: "${sheet_name}") op=${operation}`);
 
-      let rowValues = [];
-      if (Array.isArray(column_mappings) && column_mappings.length > 0) {
-        rowValues = column_mappings.map(m => this.processTemplateString(m.value || '', inputData));
+      // Load current sheet contents (header row + data) so we can do
+      // header-aligned writes and find rows for update/upsert.
+      const existing = await sheets.spreadsheets.values.get({
+        spreadsheetId: spreadsheet_id,
+        range: `'${targetSheet}'`
+      });
+      const grid = existing.data.values || [];
+      let headerRow = grid.length > 0 ? grid[0] : [];
+
+      const mappings = Array.isArray(column_mappings) ? column_mappings : [];
+      const isHeaderBased = mappings.some(m => m && typeof m.column === 'string' && !/^[A-Z]+$/.test(m.column.trim()));
+
+      // Ensure a header row exists when using header-based mappings.
+      if ((isHeaderBased || Array.isArray(headers)) && headerRow.length === 0) {
+        const desiredHeaders = Array.isArray(headers) && headers.length > 0
+          ? headers
+          : mappings.map(m => m.column);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: spreadsheet_id,
+          range: `'${targetSheet}'!A1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [desiredHeaders] }
+        });
+        headerRow = desiredHeaders;
+        grid[0] = desiredHeaders;
+      }
+
+      // Resolve mappings into { colIndex -> value }.
+      const resolvedByIndex = {};
+      const resolvedValuesOrdered = [];
+      for (const m of mappings) {
+        if (!m) continue;
+        const value = this.processTemplateString(m.value || '', inputData);
+        resolvedValuesOrdered.push(value);
+        if (typeof m.column === 'string') {
+          let idx;
+          if (/^[A-Z]+$/.test(m.column.trim())) {
+            // Explicit A1 column letter.
+            idx = m.column.trim().split('').reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+          } else {
+            idx = headerRow.findIndex(h => String(h).trim() === m.column.trim());
+            if (idx === -1) {
+              // Header not present yet — append it.
+              idx = headerRow.length;
+              headerRow[idx] = m.column;
+              await sheets.spreadsheets.values.update({
+                spreadsheetId: spreadsheet_id,
+                range: `'${targetSheet}'!A1`,
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [headerRow] }
+              });
+            }
+          }
+          resolvedByIndex[idx] = value;
+        }
+      }
+
+      // Locate an existing row for update/upsert.
+      let matchRowNumber = -1; // 1-based sheet row number
+      if (operation === 'update' || operation === 'upsert') {
+        if (!match_column || match_value === undefined) {
+          return { success: false, output: inputData, error: `operation "${operation}" requires match_column and match_value` };
+        }
+        const resolvedMatch = this.processTemplateString(String(match_value), inputData);
+        let matchColIdx;
+        if (/^[A-Z]+$/.test(String(match_column).trim())) {
+          matchColIdx = String(match_column).trim().split('').reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+        } else {
+          matchColIdx = headerRow.findIndex(h => String(h).trim() === String(match_column).trim());
+        }
+        if (matchColIdx >= 0) {
+          // Search from the bottom so we update the most recent matching row.
+          for (let r = grid.length - 1; r >= 1; r--) {
+            const cell = (grid[r] || [])[matchColIdx];
+            if (cell !== undefined && String(cell).trim() === String(resolvedMatch).trim()) {
+              matchRowNumber = r + 1; // convert 0-based grid index to 1-based row
+              break;
+            }
+          }
+        }
+      }
+
+      if ((operation === 'update' || operation === 'upsert') && matchRowNumber > 0) {
+        // Merge updates into the existing row and write it back.
+        const rowIdx = matchRowNumber - 1;
+        const merged = [...(grid[rowIdx] || [])];
+        const width = Math.max(merged.length, headerRow.length, ...Object.keys(resolvedByIndex).map(k => Number(k) + 1));
+        for (let i = 0; i < width; i++) if (merged[i] === undefined) merged[i] = '';
+        for (const [idx, val] of Object.entries(resolvedByIndex)) merged[Number(idx)] = val;
+
+        const endCol = this.columnIndexToLetter(merged.length - 1);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: spreadsheet_id,
+          range: `'${targetSheet}'!A${matchRowNumber}:${endCol}${matchRowNumber}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [merged] }
+        });
+        return { success: true, output: { ...inputData, sheet_used: targetSheet, sheet_operation: 'update', sheet_row: matchRowNumber, row_written: merged } };
+      }
+
+      if (operation === 'update' && matchRowNumber <= 0) {
+        console.warn(`[google_sheet] update: no row matched ${match_column}=${match_value}. Nothing updated.`);
+        return { success: true, output: { ...inputData, sheet_used: targetSheet, sheet_operation: 'update', sheet_row: null } };
+      }
+
+      // append (or upsert with no existing match): build a header-aligned row.
+      let rowValues;
+      if (Object.keys(resolvedByIndex).length > 0) {
+        const width = Math.max(headerRow.length, ...Object.keys(resolvedByIndex).map(k => Number(k) + 1));
+        rowValues = new Array(width).fill('');
+        for (const [idx, val] of Object.entries(resolvedByIndex)) rowValues[Number(idx)] = val;
+      } else if (resolvedValuesOrdered.length > 0) {
+        rowValues = resolvedValuesOrdered;
       } else {
-        rowValues = [
-          inputData.contact?.name || '',
-          inputData.senderNumber || '',
-          new Date().toLocaleString()
-        ];
+        rowValues = [inputData.contact?.name || '', inputData.senderNumber || '', new Date().toLocaleString()];
       }
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: spreadsheet_id,
         range: `'${targetSheet}'`,
         valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: [rowValues]
-        }
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: [rowValues] }
       });
 
-      return { success: true, output: { row_added: rowValues, sheet_used: targetSheet } };
+      return { success: true, output: { ...inputData, sheet_used: targetSheet, sheet_operation: operation === 'upsert' ? 'upsert-insert' : 'append', row_written: rowValues } };
     } catch (error) {
       console.error('Error saving to Google Sheet in automation:', error);
       await handleGoogleApiError(error, google_account_id);
