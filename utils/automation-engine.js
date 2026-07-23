@@ -141,6 +141,7 @@ class AutomationEngine {
       const messageTriggers = triggers.filter((t, i, arr) => t.event_type === 'message_received' && arr.findIndex(tt => String(tt.flow_id) === String(t.flow_id) && tt.event_type === 'message_received') === i);
       console.log(`Found ${messageTriggers.length} message received triggers`);
 
+      // Check for a waiting execution first (wait_for_reply node awaiting reply)
       const waitingExecution = await AutomationExecution.findOne({
         contact_identifier: senderNumber,
         status: 'waiting',
@@ -153,6 +154,19 @@ class AutomationEngine {
         if (flow) {
           return await this.resumeExecution(flow, waitingExecution, eventData, normalizedMessagePayload);
         }
+      }
+
+      // Also check for any recent running execution for this contact.
+      // If a flow is still processing (e.g. sending messages), don't re-trigger.
+      const activeExecution = await AutomationExecution.findOne({
+        contact_identifier: senderNumber,
+        status: 'running',
+        user_id: userId,
+        created_at: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
+      }).lean();
+      if (activeExecution) {
+        console.log(`[AutomationEngine] Active running execution ${activeExecution._id} found for ${senderNumber}. Skipping re-trigger.`);
+        return;
       }
 
       for (const trigger of messageTriggers) {
@@ -172,10 +186,15 @@ class AutomationEngine {
           console.log(`Should execute flow: ${shouldExecute}`);
           if (shouldExecute) {
             // Per-contact flow cooldown: prevent the same flow from re-executing
-            // for the same sender within 10 minutes (handles duplicate ad clicks, etc.)
-            // Skip cooldown for button/interactive clicks — they are legitimate re-entries
-            const isButtonClick = messageType === 'interactive' || messageType === 'button' || (message && message.toString().includes('___btn_'));
-            if (!isButtonClick) {
+            // for the same sender within 10 minutes.
+            // For button/interactive messages from flows WITH specific button conditions
+            // (contains ___btn_), skip cooldown. For catch-all flows, ALWAYS enforce cooldown.
+            const hasCatchAllTrigger = flow.triggers?.some(t =>
+              t.event_type === 'message_received' &&
+              (!t.conditions || Object.keys(t.conditions).length === 0)
+            );
+            const isFlowSpecificButton = !hasCatchAllTrigger && (messageType === 'interactive' || messageType === 'button') && (message && message.toString().includes('___btn_'));
+            if (!isFlowSpecificButton) {
               const recentExecution = await AutomationExecution.findOne({
                 flow_id: flow._id,
                 contact_identifier: senderNumber,
@@ -274,7 +293,10 @@ class AutomationEngine {
         flow_id: flow._id,
         user_id: flow.user_id._id || flow.user_id,
         status: 'running',
-        input_data: inputData
+        input_data: inputData,
+        // Store contact_identifier immediately so cooldown checks work
+        // even if the flow crashes before reaching a wait_for_reply node.
+        contact_identifier: inputData.senderNumber || null
       });
 
       this.runningExecutions.set(executionId, execution._id);

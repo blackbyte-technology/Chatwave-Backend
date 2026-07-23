@@ -208,29 +208,28 @@ function buildFlow(userId) {
   connCounter = 0;
 
   // ─── Layout Constants ────────────────────────────────────────────
-  const X = 400;         // center column
-  const XL = 50;         // left branches
-  const XLC = 200;       // left-center
-  const XRC = 600;       // right-center
-  const XR = 800;        // right branches
-  const XRR = 1000;      // far-right
-  let Y = 0;
-  const step = (n = 1) => { Y += 120 * n; return Y; };
+  // Node cards are ~288px wide. Columns spaced 400px apart.
+  const CX = 600;          // center spine
+  const C1 = 0;            // branch column 1 (far left)
+  const C2 = 400;          // branch column 2
+  const C3 = 800;          // branch column 3
+  const C4 = 1200;         // branch column 4
+  const C5 = 1600;         // branch column 5 (far right)
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 1: TRIGGER & WELCOME
+  //  PHASE 1: TRIGGER & WELCOME  (center spine)
   // ═══════════════════════════════════════════════════════════════
 
   const trigger = {
     id: 'trigger-main',
     type: 'trigger',
-    position: { x: X, y: step() },
+    position: { x: CX, y: 0 },
     name: 'Meta Ad Click',
     description: 'Triggers when a WhatsApp message is received (CTWA Ad)',
     parameters: {}
   };
 
-  const tagMetaLead = addTag('tag-meta-lead', 'Tag: Meta Lead', 'Meta_Lead', X, step());
+  const tagMetaLead = addTag('tag-meta-lead', 'Tag: Meta Lead', 'Meta_Lead', CX, 220);
 
   const sendWelcome = listMsg(
     'send-welcome',
@@ -246,10 +245,10 @@ function buildFlow(userId) {
       { title: '💻 CRM', description: 'I already use a CRM', id: 'system_crm' },
       { title: '🤔 Nothing', description: 'No system yet', id: 'system_nothing' }
     ],
-    X, step()
+    CX, 440
   );
 
-  const waitSystem = waitReply('wait-system', 'Wait: System Choice', X, step());
+  const waitSystem = waitReply('wait-system', 'Wait: System Choice', CX, 740);
 
   const condSystem = conditionNode(
     'cond-system',
@@ -260,34 +259,34 @@ function buildFlow(userId) {
       { id: 'c_crm', field: 'last_user_message', operator: 'equals', value: 'system_crm', sourceHandle: 'handle_crm' },
       { id: 'c_nothing', field: 'last_user_message', operator: 'equals', value: 'system_nothing', sourceHandle: 'handle_nothing' }
     ],
-    'handle_default',
-    X, step()
+    'no_match',
+    CX, 960
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 2: SYSTEM-SPECIFIC RESPONSES
+  //  PHASE 2: SYSTEM-SPECIFIC RESPONSES (4 branches)
   // ═══════════════════════════════════════════════════════════════
 
-  const branchY = step();
+  const branchY = 1400;
 
-  // ── Excel Branch ──
-  const tagExcel = addTag('tag-excel', 'Tag: Using Excel', 'Using_Excel', XL, branchY);
+  // ── Excel Branch (Column 1) ──
+  const tagExcel = addTag('tag-excel', 'Tag: Using Excel', 'Using_Excel', C1, branchY);
   const sendPainExcel = textMsg(
     'send-pain-excel', 'Pain: Excel',
     'We understand. 📊\n\nMany insurance advisors using Excel miss important follow-ups because there are no automatic reminders.\n\n*Insurance Desk automates the entire renewal process.*',
-    XL, branchY + 120
+    C1, branchY + 220
   );
 
-  // ── Diary Branch ──
-  const tagDiary = addTag('tag-diary', 'Tag: Using Diary', 'Using_Diary', XLC, branchY);
+  // ── Diary Branch (Column 2) ──
+  const tagDiary = addTag('tag-diary', 'Tag: Using Diary', 'Using_Diary', C2, branchY);
   const sendPainDiary = textMsg(
     'send-pain-diary', 'Pain: Diary',
     'Many advisors lose renewals simply because they forget to follow up on time. 📅\n\n*Insurance Desk automatically reminds you before every renewal.*',
-    XLC, branchY + 120
+    C2, branchY + 220
   );
 
-  // ── CRM Branch ──
-  const tagCrm = addTag('tag-crm', 'Tag: Using CRM', 'Using_CRM', XRC, branchY);
+  // ── CRM Branch (Column 3) ──
+  const tagCrm = addTag('tag-crm', 'Tag: Using CRM', 'Using_CRM', C3, branchY);
   const sendCrmAsk = listMsg(
     'send-crm-ask', 'CRM: What\'s Missing?',
     'That\'s great! 👍\n\nCan we ask one quick question?\n\n*What is missing in your current CRM?*',
@@ -301,28 +300,28 @@ function buildFlow(userId) {
       { title: 'Mobile App', description: 'Access from phone', id: 'crm_mobile' },
       { title: 'Price', description: 'Current CRM is too expensive', id: 'crm_price' }
     ],
-    XRC, branchY + 120
+    C3, branchY + 220
   );
-  const waitCrm = waitReply('wait-crm', 'Wait: CRM Response', XRC, branchY + 240);
+  const waitCrm = waitReply('wait-crm', 'Wait: CRM Response', C3, branchY + 520);
   const sendCrmResp = textMsg(
     'send-crm-resp', 'CRM: Response',
     'Thanks for sharing! 🙏\n\nInsurance Desk is built specifically for insurance advisors with all these features built-in.\n\nLet us show you how it works.',
-    XRC, branchY + 360
+    C3, branchY + 740
   );
 
-  // ── Nothing Branch ──
-  const tagNothing = addTag('tag-nothing', 'Tag: No System', 'No_System', XR, branchY);
+  // ── Nothing Branch (Column 4) ──
+  const tagNothing = addTag('tag-nothing', 'Tag: No System', 'No_System', C4, branchY);
   const sendPainNothing = textMsg(
     'send-pain-nothing', 'Pain: No System',
     'You\'re not alone. 🤝\n\nMany successful advisors begin with manual work.\n\n*Insurance Desk helps organize your customers, policies and renewals from Day 1.*',
-    XR, branchY + 120
+    C4, branchY + 220
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 3: RENEWAL VOLUME QUESTION
+  //  PHASE 3: RENEWAL VOLUME QUESTION (center spine)
   // ═══════════════════════════════════════════════════════════════
 
-  const volY = branchY + 520;
+  const volY = 2500;
 
   const sendVolume = listMsg(
     'send-volume', 'Renewal Volume Question',
@@ -337,10 +336,10 @@ function buildFlow(userId) {
       { title: '50 – 100', description: 'Large portfolio', id: 'vol_50_100' },
       { title: '100+', description: 'Enterprise level', id: 'vol_100_plus' }
     ],
-    X, volY
+    CX, volY
   );
 
-  const waitVolume = waitReply('wait-volume', 'Wait: Volume Choice', X, volY + 120);
+  const waitVolume = waitReply('wait-volume', 'Wait: Volume Choice', CX, volY + 300);
 
   const condVolume = conditionNode(
     'cond-volume',
@@ -351,58 +350,58 @@ function buildFlow(userId) {
       { id: 'cv_50_100', field: 'last_user_message', operator: 'equals', value: 'vol_50_100', sourceHandle: 'handle_v50' },
       { id: 'cv_100_plus', field: 'last_user_message', operator: 'equals', value: 'vol_100_plus', sourceHandle: 'handle_v100' }
     ],
-    'handle_v_default',
-    X, volY + 240
+    'no_match',
+    CX, volY + 520
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 4: DYNAMIC VOLUME RESPONSES
+  //  PHASE 4: DYNAMIC VOLUME RESPONSES (4 branches)
   // ═══════════════════════════════════════════════════════════════
 
-  const volRespY = volY + 360;
+  const volRespY = 3500;
 
-  // ── 0-20 ──
-  const tagV0 = addTag('tag-vol-0-20', 'Tag: 0-20 Renewals', 'Renewals_0_20', XL, volRespY);
+  // ── 0-20 (Column 1) ──
+  const tagV0 = addTag('tag-vol-0-20', 'Tag: 0-20 Renewals', 'Renewals_0_20', C1, volRespY);
   const sendV0 = textMsg(
     'send-vol-0-20', 'Response: 0-20',
     'Perfect. 👌\n\nNow is the best time to build an organized renewal process before your business grows.',
-    XL, volRespY + 120
+    C1, volRespY + 220
   );
 
-  // ── 20-50 ──
-  const tagV20 = addTag('tag-vol-20-50', 'Tag: 20-50 Renewals', 'Renewals_20_50', XLC, volRespY);
+  // ── 20-50 (Column 2) ──
+  const tagV20 = addTag('tag-vol-20-50', 'Tag: 20-50 Renewals', 'Renewals_20_50', C2, volRespY);
   const sendV20 = textMsg(
     'send-vol-20-50', 'Response: 20-50',
     'Excellent. 🚀\n\nAutomation starts saving hours every week at this stage.',
-    XLC, volRespY + 120
+    C2, volRespY + 220
   );
 
-  // ── 50-100 ──
-  const tagV50 = addTag('tag-vol-50-100', 'Tag: 50-100 Renewals', 'Renewals_50_100', XRC, volRespY);
+  // ── 50-100 (Column 3) ──
+  const tagV50 = addTag('tag-vol-50-100', 'Tag: 50-100 Renewals', 'Renewals_50_100', C3, volRespY);
   const sendV50 = textMsg(
     'send-vol-50-100', 'Response: 50-100',
     'You\'re managing a large portfolio. 📈\n\nAutomatic reminders can save significant time and improve customer retention.',
-    XRC, volRespY + 120
+    C3, volRespY + 220
   );
 
-  // ── 100+ ──
-  const tagV100 = addTag('tag-vol-100-plus', 'Tag: 100+ Renewals', 'Renewals_100Plus', XR, volRespY);
+  // ── 100+ (Column 4) ──
+  const tagV100 = addTag('tag-vol-100-plus', 'Tag: 100+ Renewals', 'Renewals_100Plus', C4, volRespY);
   const sendV100 = textMsg(
     'send-vol-100-plus', 'Response: 100+',
     'That\'s a significant portfolio. 💼\n\nMissing even a few renewals every month could mean losing thousands in commission.\n\n*Insurance Desk ensures you never miss an opportunity.*',
-    XR, volRespY + 120
+    C4, volRespY + 220
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 5: SOCIAL PROOF & TRIAL OFFER
+  //  PHASE 5: SOCIAL PROOF & TRIAL OFFER (center spine)
   // ═══════════════════════════════════════════════════════════════
 
-  const spY = volRespY + 320;
+  const spY = 4200;
 
   const sendSocialProof = textMsg(
     'send-social-proof', 'Social Proof',
     '⭐⭐⭐⭐⭐\n\n*Thousands of insurance policies* are already being managed through Insurance Desk.\n\nInsurance advisors save hours every week using:\n\n✅ Renewal Automation\n✅ WhatsApp Reminders\n✅ Customer Mobile App\n✅ AI Policy Entry\n✅ Business Reports',
-    X, spY
+    CX, spY
   );
 
   const sendTrialOffer = listMsg(
@@ -418,10 +417,10 @@ function buildFlow(userId) {
       { title: '☎ Talk to Sales', description: 'Speak with our CRM specialist', id: 'trial_sales' },
       { title: '❓ Ask a Question', description: 'Learn more before deciding', id: 'trial_question' }
     ],
-    X, spY + 140
+    CX, spY + 300
   );
 
-  const waitTrial = waitReply('wait-trial', 'Wait: Trial Choice', X, spY + 260, 2, 'minutes');
+  const waitTrial = waitReply('wait-trial', 'Wait: Trial Choice', CX, spY + 600, 2, 'minutes');
 
   const condTrial = conditionNode(
     'cond-trial',
@@ -432,46 +431,46 @@ function buildFlow(userId) {
       { id: 'ct_sales', field: 'last_user_message', operator: 'equals', value: 'trial_sales', sourceHandle: 'handle_sales' },
       { id: 'ct_question', field: 'last_user_message', operator: 'equals', value: 'trial_question', sourceHandle: 'handle_question' }
     ],
-    'handle_followup',   // no match or timeout → follow-up sequence
-    X, spY + 380
+    'no_match',
+    CX, spY + 820
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 6: FINAL CTA BRANCHES
+  //  PHASE 6: FINAL CTA BRANCHES (5 branches)
   // ═══════════════════════════════════════════════════════════════
 
-  const ctaY = spY + 500;
+  const ctaY = 5500;
 
-  // ── Trial Branch ──
-  const tagTrial = addTag('tag-trial', 'Tag: Trial Clicked', 'Trial_Clicked', XL, ctaY);
+  // ── Trial Branch (Column 1) ──
+  const tagTrial = addTag('tag-trial', 'Tag: Trial Clicked', 'Trial_Clicked', C1, ctaY);
   const sendTrialActivate = textMsg(
     'send-trial-activate', 'Trial: Activation',
     'Excellent choice! 🎉\n\nFor the next *30 days*, you\'ll get access to Premium features including:\n\n• Unlimited Clients\n• AI Policy Upload\n• WhatsApp Marketing\n• Customer App\n• Renewal Automation\n• Reports & Analytics\n\n👇 Click below to activate your account.',
-    XL, ctaY + 120
+    C1, ctaY + 250
   );
   const ctaActivate = ctaBtn(
     'cta-activate', 'CTA: Activate Trial',
     '🚀 Activate your FREE 30-Day Trial now!',
     '🚀 Activate Trial', TRIAL_URL,
-    XL, ctaY + 240
+    C1, ctaY + 530
   );
 
-  // ── Demo Branch ──
-  const tagDemo = addTag('tag-demo', 'Tag: Demo Booked', 'Demo_Booked', XLC, ctaY);
+  // ── Demo Branch (Column 2) ──
+  const tagDemo = addTag('tag-demo', 'Tag: Demo Booked', 'Demo_Booked', C2, ctaY);
   const sendDemo = textMsg(
     'send-demo', 'Demo: Booking',
     'Perfect! 📅\n\nOur product expert will personally demonstrate how Insurance Desk can help your business.\n\n⏱ Duration: Only *15 Minutes*\n\n👇 Click below to pick a time.',
-    XLC, ctaY + 120
+    C2, ctaY + 250
   );
   const ctaDemo = ctaBtn(
     'cta-demo', 'CTA: Schedule Demo',
     '📅 Schedule your FREE demo session',
     '📅 Schedule Demo', DEMO_URL,
-    XLC, ctaY + 240
+    C2, ctaY + 530
   );
 
-  // ── Sales Branch ──
-  const tagSales = addTag('tag-sales', 'Tag: Sales Interested', 'Sales_Interested', XRC, ctaY);
+  // ── Sales Branch (Column 3) ──
+  const tagSales = addTag('tag-sales', 'Tag: Sales Interested', 'Sales_Interested', C3, ctaY);
   const sendSalesOptions = btnMsg(
     'send-sales', 'Sales: Options',
     'Our Insurance CRM specialists are available to help. 🤝\n\nChoose your preferred option:',
@@ -480,18 +479,18 @@ function buildFlow(userId) {
       { title: '💬 WhatsApp Sales', id: 'sales_wa' },
       { title: '📅 Schedule', id: 'sales_schedule' }
     ],
-    XRC, ctaY + 120
+    C3, ctaY + 250
   );
 
-  // ── Question Branch ──
+  // ── Question Branch (Column 4) ──
   const sendQuestion = textMsg(
     'send-question', 'Question: Topics',
     'No worries! 😊\n\nAsk us anything about:\n\n• 💰 Pricing\n• ⚡ Features\n• 🔄 Migration\n• 🛠 Support\n• 🚀 Setup\n\nOur team is here to help. Just type your question!',
-    XR, ctaY
+    C4, ctaY
   );
 
-  // ── Sales sub-routing (Call/WhatsApp/Schedule) ──
-  const waitSales = waitReply('wait-sales', 'Wait: Sales Choice', XRC, ctaY + 240);
+  // ── Sales sub-routing (under Column 3) ──
+  const waitSales = waitReply('wait-sales', 'Wait: Sales Choice', C3, ctaY + 530);
   const condSales = conditionNode(
     'cond-sales',
     'Route: Sales Choice',
@@ -501,34 +500,34 @@ function buildFlow(userId) {
       { id: 'cs_schedule', field: 'last_user_message', operator: 'equals', value: 'sales_schedule', sourceHandle: 'handle_s_schedule' }
     ],
     null,
-    XRC, ctaY + 360
+    C3, ctaY + 750
   );
   const sendSalesCall = textMsg(
     'send-sales-call', 'Sales: Call',
     `📞 Call our specialist now:\n\n${SALES_PHONE}\n\nWe're available Mon-Sat, 10 AM - 7 PM`,
-    XRC - 150, ctaY + 480
+    C2, ctaY + 1050
   );
   const sendSalesWa = textMsg(
     'send-sales-wa', 'Sales: WhatsApp',
     'A sales specialist will message you shortly. 💬\n\nPlease share your name and which insurance types you handle.',
-    XRC, ctaY + 480
+    C3, ctaY + 1050
   );
   const sendSalesSchedule = ctaBtn(
     'send-sales-schedule', 'Sales: Schedule Meeting',
     '📅 Schedule a call with our specialist',
     '📅 Schedule Meeting', DEMO_URL,
-    XRC + 150, ctaY + 480
+    C4, ctaY + 1050
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  PHASE 7: FOLLOW-UP SEQUENCE
+  //  PHASE 7: FOLLOW-UP SEQUENCE (Column 5 — far right)
   // ═══════════════════════════════════════════════════════════════
 
-  const fuY = ctaY + 620;
+  const fuY = ctaY;
 
-  const tagFollowup = addTag('tag-followup', 'Tag: Need Follow-up', 'Need_Followup', X, fuY);
+  const tagFollowup = addTag('tag-followup', 'Tag: Need Follow-up', 'Need_Followup', C5, fuY);
 
-  // ── Reminder 1 (fires after 2min timeout on trial offer) ──
+  // ── Reminder 1 ──
   const sendR1 = btnMsg(
     'send-reminder-1', 'Reminder 1 (2 min)',
     '😊 Just checking...\n\nEven missing one renewal every week can cost more than the price of a CRM.\n\nWould you like to see how Insurance Desk prevents this?',
@@ -536,21 +535,21 @@ function buildFlow(userId) {
       { title: '👍 Yes', id: 'r1_yes' },
       { title: '⏰ Later', id: 'r1_later' }
     ],
-    X, fuY + 120
+    C5, fuY + 250
   );
 
-  const waitR1 = waitReply('wait-r1', 'Wait: Reminder 1', X, fuY + 240, 12, 'hours');
+  const waitR1 = waitReply('wait-r1', 'Wait: Reminder 1', C5, fuY + 530, 12, 'hours');
 
   const condR1 = conditionNode(
     'cond-r1', 'Route: Reminder 1',
     [
       { id: 'cr1_yes', field: 'last_user_message', operator: 'equals', value: 'r1_yes', sourceHandle: 'handle_r1_yes' }
     ],
-    'handle_r1_continue',  // "Later" or timeout → next reminder
-    X, fuY + 360
+    'no_match',
+    C5, fuY + 750
   );
 
-  // ── Reminder 2 (12 hrs after Reminder 1) ──
+  // ── Reminder 2 ──
   const sendR2 = btnMsg(
     'send-reminder-2', 'Reminder 2 (12 hrs)',
     'Still thinking? 🤔\n\nYour *FREE Trial* is reserved for you.\n\nIt expires soon. ⏳',
@@ -558,10 +557,10 @@ function buildFlow(userId) {
       { title: '🚀 Start Trial', id: 'r2_trial' },
       { title: '☎ Talk to Sales', id: 'r2_sales' }
     ],
-    X, fuY + 480
+    C5, fuY + 1050
   );
 
-  const waitR2 = waitReply('wait-r2', 'Wait: Reminder 2', X, fuY + 600, 24, 'hours');
+  const waitR2 = waitReply('wait-r2', 'Wait: Reminder 2', C5, fuY + 1330, 24, 'hours');
 
   const condR2 = conditionNode(
     'cond-r2', 'Route: Reminder 2',
@@ -569,11 +568,11 @@ function buildFlow(userId) {
       { id: 'cr2_trial', field: 'last_user_message', operator: 'equals', value: 'r2_trial', sourceHandle: 'handle_r2_trial' },
       { id: 'cr2_sales', field: 'last_user_message', operator: 'equals', value: 'r2_sales', sourceHandle: 'handle_r2_sales' }
     ],
-    'handle_r2_continue',
-    X, fuY + 720
+    'no_match',
+    C5, fuY + 1550
   );
 
-  // ── Reminder 3 (24 hrs after Reminder 2) ──
+  // ── Reminder 3 ──
   const sendR3 = btnMsg(
     'send-reminder-3', 'Reminder 3 (24 hrs)',
     'Many insurance advisors recover their CRM cost simply by saving missed renewals. 💡\n\nDon\'t miss the opportunity. 👇',
@@ -581,10 +580,10 @@ function buildFlow(userId) {
       { title: '🚀 Start Trial', id: 'r3_trial' },
       { title: '📅 Book Demo', id: 'r3_demo' }
     ],
-    X, fuY + 840
+    C5, fuY + 1850
   );
 
-  const waitR3 = waitReply('wait-r3', 'Wait: Reminder 3', X, fuY + 960, 72, 'hours');
+  const waitR3 = waitReply('wait-r3', 'Wait: Reminder 3', C5, fuY + 2130, 72, 'hours');
 
   const condR3 = conditionNode(
     'cond-r3', 'Route: Reminder 3',
@@ -592,11 +591,11 @@ function buildFlow(userId) {
       { id: 'cr3_trial', field: 'last_user_message', operator: 'equals', value: 'r3_trial', sourceHandle: 'handle_r3_trial' },
       { id: 'cr3_demo', field: 'last_user_message', operator: 'equals', value: 'r3_demo', sourceHandle: 'handle_r3_demo' }
     ],
-    'handle_r3_continue',
-    X, fuY + 1080
+    'no_match',
+    C5, fuY + 2350
   );
 
-  // ── Final Reminder (3 days after Reminder 3) ──
+  // ── Final Reminder ──
   const sendFinal = btnMsg(
     'send-final-reminder', 'Final Reminder (3 days)',
     'This is our final reminder. ⚠️\n\nYour *FREE Trial* will expire shortly.\n\nWould you like to activate it before it closes?',
@@ -604,10 +603,10 @@ function buildFlow(userId) {
       { title: '🚀 Start Trial', id: 'final_trial' },
       { title: '☎ Talk to Sales', id: 'final_sales' }
     ],
-    X, fuY + 1200
+    C5, fuY + 2650
   );
 
-  const waitFinal = waitReply('wait-final', 'Wait: Final', X, fuY + 1320, 24, 'hours');
+  const waitFinal = waitReply('wait-final', 'Wait: Final', C5, fuY + 2930, 24, 'hours');
 
   const condFinal = conditionNode(
     'cond-final', 'Route: Final',
@@ -615,11 +614,11 @@ function buildFlow(userId) {
       { id: 'cf_trial', field: 'last_user_message', operator: 'equals', value: 'final_trial', sourceHandle: 'handle_f_trial' },
       { id: 'cf_sales', field: 'last_user_message', operator: 'equals', value: 'final_sales', sourceHandle: 'handle_f_sales' }
     ],
-    'handle_f_end',
-    X, fuY + 1440
+    'no_match',
+    C5, fuY + 3150
   );
 
-  const tagNoResponse = addTag('tag-no-response', 'Tag: No Response', 'No_Response', X, fuY + 1560);
+  const tagNoResponse = addTag('tag-no-response', 'Tag: No Response', 'No_Response', C5, fuY + 3450);
 
 
   // ═══════════════════════════════════════════════════════════════
