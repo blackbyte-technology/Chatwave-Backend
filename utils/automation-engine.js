@@ -158,6 +158,8 @@ class AutomationEngine {
 
       // Also check for any recent running execution for this contact.
       // If a flow is still processing (e.g. sending messages), don't re-trigger.
+      // Auto-clean executions older than 2 minutes — they are stuck/crashed.
+      const STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
       const activeExecution = await AutomationExecution.findOne({
         contact_identifier: senderNumber,
         status: 'running',
@@ -165,8 +167,20 @@ class AutomationEngine {
         created_at: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
       }).lean();
       if (activeExecution) {
-        console.log(`[AutomationEngine] Active running execution ${activeExecution._id} found for ${senderNumber}. Skipping re-trigger.`);
-        return;
+        const ageMs = Date.now() - new Date(activeExecution.created_at).getTime();
+        if (ageMs < STALE_THRESHOLD_MS) {
+          // Execution is fresh (< 2 min) — likely still processing, skip
+          console.log(`[AutomationEngine] Active running execution ${activeExecution._id} found for ${senderNumber} (${Math.round(ageMs/1000)}s old). Skipping re-trigger.`);
+          return;
+        } else {
+          // Execution is stale (> 2 min) — auto-clean it
+          console.log(`[AutomationEngine] Stale running execution ${activeExecution._id} for ${senderNumber} (${Math.round(ageMs/1000)}s old). Auto-cleaning.`);
+          await AutomationExecution.findByIdAndUpdate(activeExecution._id, {
+            status: 'failed',
+            error: 'Auto-cleaned stale running execution',
+            completed_at: new Date()
+          });
+        }
       }
 
       for (const trigger of messageTriggers) {
