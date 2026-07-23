@@ -1,0 +1,960 @@
+#!/usr/bin/env node
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ *  Insurance Desk — Meta Ads → WhatsApp Automation Flow (Seed Script)
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ *  Creates a complete lead-qualification automation flow that converts
+ *  Meta Ad (CTWA) clicks into 30-Day Free Trial sign-ups.
+ *
+ *  Usage:
+ *    node scripts/seed-insurance-desk-flow.js <userId>
+ *
+ *  Example:
+ *    node scripts/seed-insurance-desk-flow.js 665a1b2c3d4e5f6a7b8c9d0e
+ *
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// ─── Placeholder URLs (update before production) ─────────────────────
+const TRIAL_URL = 'https://insurancedesk.co.in/free-trial';
+const DEMO_URL = 'https://calendly.com/insurancedesk/demo';
+const SALES_PHONE = '+918153026777';
+const DEMO_VIDEO = 'https://www.youtube.com/playlist?list=PLa1GQZqyUPl4qCmkLI8fFRrU7KK3z9yVq&si=hKPZkIiuWW-GLgtf';
+
+// ─── Tag Definitions ─────────────────────────────────────────────────
+const TAG_DEFS = [
+  // Source
+  { label: 'Meta_Lead', color: '#6366f1' },
+  // Current System
+  { label: 'Using_Excel', color: '#f59e0b' },
+  { label: 'Using_Diary', color: '#f59e0b' },
+  { label: 'Using_CRM', color: '#f59e0b' },
+  { label: 'No_System', color: '#f59e0b' },
+  // Portfolio Size
+  { label: 'Renewals_0_20', color: '#10b981' },
+  { label: 'Renewals_20_50', color: '#10b981' },
+  { label: 'Renewals_50_100', color: '#10b981' },
+  { label: 'Renewals_100Plus', color: '#10b981' },
+  // User Intent
+  { label: 'Trial_Clicked', color: '#3b82f6' },
+  { label: 'Demo_Booked', color: '#8b5cf6' },
+  { label: 'Sales_Interested', color: '#ef4444' },
+  { label: 'Price_Concern', color: '#ef4444' },
+  { label: 'Need_Followup', color: '#f97316' },
+  { label: 'No_Response', color: '#6b7280' },
+];
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NODE BUILDERS
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Helper: builds a send_message node with interactive LIST
+ */
+function listMsg(id, name, body, header, footer, buttonTitle, sectionTitle, items, x, y) {
+  return {
+    id, type: 'send_message',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: {
+      recipient: '{{senderNumber}}',
+      message_template: body,
+      interactive_type: 'list',
+      list_params: {
+        header,
+        body,
+        footer,
+        buttonTitle,
+        sectionTitle,
+        items   // [{ title, description, id }]
+      }
+    }
+  };
+}
+
+/**
+ * Helper: builds a send_message node with interactive BUTTONS (max 3)
+ */
+function btnMsg(id, name, body, buttons, x, y) {
+  return {
+    id, type: 'send_message',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: {
+      recipient: '{{senderNumber}}',
+      message_template: body,
+      interactive_type: 'button',
+      button_params: buttons  // [{ title, id }]
+    }
+  };
+}
+
+/**
+ * Helper: builds a plain text send_message node
+ */
+function textMsg(id, name, body, x, y) {
+  return {
+    id, type: 'send_message',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: {
+      recipient: '{{senderNumber}}',
+      message_template: body
+    }
+  };
+}
+
+/**
+ * Helper: builds a CTA URL button node
+ */
+function ctaBtn(id, name, body, buttonText, url, x, y) {
+  return {
+    id, type: 'cta_button',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: {
+      recipient: '{{senderNumber}}',
+      message_template: body,
+      url,
+      button_text: buttonText
+    }
+  };
+}
+
+/**
+ * Helper: builds an add_tag node
+ */
+function addTag(id, name, tagName, x, y) {
+  return {
+    id, type: 'add_tag',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: { tag_name: tagName }
+  };
+}
+
+/**
+ * Helper: builds a wait_for_reply node
+ */
+function waitReply(id, name, x, y, timeoutValue = null, timeoutUnit = null) {
+  const params = { variable_name: 'last_user_message' };
+  if (timeoutValue && timeoutUnit) {
+    params.timeout_value = timeoutValue;
+    params.timeout_unit = timeoutUnit;
+  }
+  return {
+    id, type: 'wait_for_reply',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: params
+  };
+}
+
+/**
+ * Helper: builds a condition node with multi-branch routing
+ */
+function conditionNode(id, name, conditions, noMatchHandle, x, y) {
+  return {
+    id, type: 'condition',
+    position: { x, y },
+    name,
+    description: '',
+    parameters: {
+      conditions,     // [{ id, field, operator, value, sourceHandle }]
+      no_match_handle: noMatchHandle || null
+    }
+  };
+}
+
+/**
+ * Helper: builds a connection
+ */
+let connCounter = 0;
+function conn(source, target, sourceHandle = 'output', targetHandle = 'input') {
+  connCounter++;
+  return {
+    id: `conn-${connCounter}`,
+    source,
+    target,
+    sourceHandle,
+    targetHandle
+  };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BUILD THE COMPLETE FLOW
+// ═══════════════════════════════════════════════════════════════════════
+
+function buildFlow(userId) {
+  connCounter = 0;
+
+  // ─── Layout Constants ────────────────────────────────────────────
+  const X = 400;         // center column
+  const XL = 50;         // left branches
+  const XLC = 200;       // left-center
+  const XRC = 600;       // right-center
+  const XR = 800;        // right branches
+  const XRR = 1000;      // far-right
+  let Y = 0;
+  const step = (n = 1) => { Y += 120 * n; return Y; };
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 1: TRIGGER & WELCOME
+  // ═══════════════════════════════════════════════════════════════
+
+  const trigger = {
+    id: 'trigger-main',
+    type: 'trigger',
+    position: { x: X, y: step() },
+    name: 'Meta Ad Click',
+    description: 'Triggers when a WhatsApp message is received (CTWA Ad)',
+    parameters: {}
+  };
+
+  const tagMetaLead = addTag('tag-meta-lead', 'Tag: Meta Lead', 'Meta_Lead', X, step());
+
+  const sendWelcome = listMsg(
+    'send-welcome',
+    'Welcome Message',
+    '👋 *Welcome to Insurance Desk!*\n\nTell us one thing...\n\n*How do you currently manage your insurance renewals?*',
+    'Insurance Desk',
+    'Select one option below',
+    'Choose Option',
+    'Current System',
+    [
+      { title: '📒 Excel', description: 'I use spreadsheets', id: 'system_excel' },
+      { title: '📅 Diary', description: 'I use a diary or notebook', id: 'system_diary' },
+      { title: '💻 CRM', description: 'I already use a CRM', id: 'system_crm' },
+      { title: '🤔 Nothing', description: 'No system yet', id: 'system_nothing' }
+    ],
+    X, step()
+  );
+
+  const waitSystem = waitReply('wait-system', 'Wait: System Choice', X, step());
+
+  const condSystem = conditionNode(
+    'cond-system',
+    'Route: System Choice',
+    [
+      { id: 'c_excel', field: 'last_user_message', operator: 'equals', value: 'system_excel', sourceHandle: 'handle_excel' },
+      { id: 'c_diary', field: 'last_user_message', operator: 'equals', value: 'system_diary', sourceHandle: 'handle_diary' },
+      { id: 'c_crm', field: 'last_user_message', operator: 'equals', value: 'system_crm', sourceHandle: 'handle_crm' },
+      { id: 'c_nothing', field: 'last_user_message', operator: 'equals', value: 'system_nothing', sourceHandle: 'handle_nothing' }
+    ],
+    'handle_default',
+    X, step()
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 2: SYSTEM-SPECIFIC RESPONSES
+  // ═══════════════════════════════════════════════════════════════
+
+  const branchY = step();
+
+  // ── Excel Branch ──
+  const tagExcel = addTag('tag-excel', 'Tag: Using Excel', 'Using_Excel', XL, branchY);
+  const sendPainExcel = textMsg(
+    'send-pain-excel', 'Pain: Excel',
+    'We understand. 📊\n\nMany insurance advisors using Excel miss important follow-ups because there are no automatic reminders.\n\n*Insurance Desk automates the entire renewal process.*',
+    XL, branchY + 120
+  );
+
+  // ── Diary Branch ──
+  const tagDiary = addTag('tag-diary', 'Tag: Using Diary', 'Using_Diary', XLC, branchY);
+  const sendPainDiary = textMsg(
+    'send-pain-diary', 'Pain: Diary',
+    'Many advisors lose renewals simply because they forget to follow up on time. 📅\n\n*Insurance Desk automatically reminds you before every renewal.*',
+    XLC, branchY + 120
+  );
+
+  // ── CRM Branch ──
+  const tagCrm = addTag('tag-crm', 'Tag: Using CRM', 'Using_CRM', XRC, branchY);
+  const sendCrmAsk = listMsg(
+    'send-crm-ask', 'CRM: What\'s Missing?',
+    'That\'s great! 👍\n\nCan we ask one quick question?\n\n*What is missing in your current CRM?*',
+    'Quick Question',
+    'Select one',
+    'Choose',
+    'Missing Features',
+    [
+      { title: 'Renewal Reminders', description: 'Auto reminders before expiry', id: 'crm_reminders' },
+      { title: 'WhatsApp Integration', description: 'Send messages via WhatsApp', id: 'crm_whatsapp' },
+      { title: 'Mobile App', description: 'Access from phone', id: 'crm_mobile' },
+      { title: 'Price', description: 'Current CRM is too expensive', id: 'crm_price' }
+    ],
+    XRC, branchY + 120
+  );
+  const waitCrm = waitReply('wait-crm', 'Wait: CRM Response', XRC, branchY + 240);
+  const sendCrmResp = textMsg(
+    'send-crm-resp', 'CRM: Response',
+    'Thanks for sharing! 🙏\n\nInsurance Desk is built specifically for insurance advisors with all these features built-in.\n\nLet us show you how it works.',
+    XRC, branchY + 360
+  );
+
+  // ── Nothing Branch ──
+  const tagNothing = addTag('tag-nothing', 'Tag: No System', 'No_System', XR, branchY);
+  const sendPainNothing = textMsg(
+    'send-pain-nothing', 'Pain: No System',
+    'You\'re not alone. 🤝\n\nMany successful advisors begin with manual work.\n\n*Insurance Desk helps organize your customers, policies and renewals from Day 1.*',
+    XR, branchY + 120
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 3: RENEWAL VOLUME QUESTION
+  // ═══════════════════════════════════════════════════════════════
+
+  const volY = branchY + 520;
+
+  const sendVolume = listMsg(
+    'send-volume', 'Renewal Volume Question',
+    'Approximately how many renewals do you handle every month? 📋',
+    'Renewal Volume',
+    'This helps us personalize your experience',
+    'Select Range',
+    'Monthly Renewals',
+    [
+      { title: '0 – 20', description: 'Just starting out', id: 'vol_0_20' },
+      { title: '20 – 50', description: 'Growing portfolio', id: 'vol_20_50' },
+      { title: '50 – 100', description: 'Large portfolio', id: 'vol_50_100' },
+      { title: '100+', description: 'Enterprise level', id: 'vol_100_plus' }
+    ],
+    X, volY
+  );
+
+  const waitVolume = waitReply('wait-volume', 'Wait: Volume Choice', X, volY + 120);
+
+  const condVolume = conditionNode(
+    'cond-volume',
+    'Route: Volume Choice',
+    [
+      { id: 'cv_0_20', field: 'last_user_message', operator: 'equals', value: 'vol_0_20', sourceHandle: 'handle_v0' },
+      { id: 'cv_20_50', field: 'last_user_message', operator: 'equals', value: 'vol_20_50', sourceHandle: 'handle_v20' },
+      { id: 'cv_50_100', field: 'last_user_message', operator: 'equals', value: 'vol_50_100', sourceHandle: 'handle_v50' },
+      { id: 'cv_100_plus', field: 'last_user_message', operator: 'equals', value: 'vol_100_plus', sourceHandle: 'handle_v100' }
+    ],
+    'handle_v_default',
+    X, volY + 240
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 4: DYNAMIC VOLUME RESPONSES
+  // ═══════════════════════════════════════════════════════════════
+
+  const volRespY = volY + 360;
+
+  // ── 0-20 ──
+  const tagV0 = addTag('tag-vol-0-20', 'Tag: 0-20 Renewals', 'Renewals_0_20', XL, volRespY);
+  const sendV0 = textMsg(
+    'send-vol-0-20', 'Response: 0-20',
+    'Perfect. 👌\n\nNow is the best time to build an organized renewal process before your business grows.',
+    XL, volRespY + 120
+  );
+
+  // ── 20-50 ──
+  const tagV20 = addTag('tag-vol-20-50', 'Tag: 20-50 Renewals', 'Renewals_20_50', XLC, volRespY);
+  const sendV20 = textMsg(
+    'send-vol-20-50', 'Response: 20-50',
+    'Excellent. 🚀\n\nAutomation starts saving hours every week at this stage.',
+    XLC, volRespY + 120
+  );
+
+  // ── 50-100 ──
+  const tagV50 = addTag('tag-vol-50-100', 'Tag: 50-100 Renewals', 'Renewals_50_100', XRC, volRespY);
+  const sendV50 = textMsg(
+    'send-vol-50-100', 'Response: 50-100',
+    'You\'re managing a large portfolio. 📈\n\nAutomatic reminders can save significant time and improve customer retention.',
+    XRC, volRespY + 120
+  );
+
+  // ── 100+ ──
+  const tagV100 = addTag('tag-vol-100-plus', 'Tag: 100+ Renewals', 'Renewals_100Plus', XR, volRespY);
+  const sendV100 = textMsg(
+    'send-vol-100-plus', 'Response: 100+',
+    'That\'s a significant portfolio. 💼\n\nMissing even a few renewals every month could mean losing thousands in commission.\n\n*Insurance Desk ensures you never miss an opportunity.*',
+    XR, volRespY + 120
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 5: SOCIAL PROOF & TRIAL OFFER
+  // ═══════════════════════════════════════════════════════════════
+
+  const spY = volRespY + 320;
+
+  const sendSocialProof = textMsg(
+    'send-social-proof', 'Social Proof',
+    '⭐⭐⭐⭐⭐\n\n*Thousands of insurance policies* are already being managed through Insurance Desk.\n\nInsurance advisors save hours every week using:\n\n✅ Renewal Automation\n✅ WhatsApp Reminders\n✅ Customer Mobile App\n✅ AI Policy Entry\n✅ Business Reports',
+    X, spY
+  );
+
+  const sendTrialOffer = listMsg(
+    'send-trial-offer', 'Trial Offer',
+    '🎉 *Great News!*\n\nYou\'re eligible for a *FREE 30-Day Trial.*\n\n✔ No Credit Card\n✔ No Setup Charges\n✔ No Commitment\n\n👇 What would you like to do?',
+    '🎉 Free Trial',
+    'Choose an option below',
+    'Select Option',
+    'Next Steps',
+    [
+      { title: '🚀 Start FREE Trial', description: 'Activate your 30-day trial now', id: 'trial_start' },
+      { title: '📅 Book Demo', description: 'Schedule a 15-min demo', id: 'trial_demo' },
+      { title: '☎ Talk to Sales', description: 'Speak with our CRM specialist', id: 'trial_sales' },
+      { title: '❓ Ask a Question', description: 'Learn more before deciding', id: 'trial_question' }
+    ],
+    X, spY + 140
+  );
+
+  const waitTrial = waitReply('wait-trial', 'Wait: Trial Choice', X, spY + 260, 2, 'minutes');
+
+  const condTrial = conditionNode(
+    'cond-trial',
+    'Route: Trial Choice',
+    [
+      { id: 'ct_start', field: 'last_user_message', operator: 'equals', value: 'trial_start', sourceHandle: 'handle_trial' },
+      { id: 'ct_demo', field: 'last_user_message', operator: 'equals', value: 'trial_demo', sourceHandle: 'handle_demo' },
+      { id: 'ct_sales', field: 'last_user_message', operator: 'equals', value: 'trial_sales', sourceHandle: 'handle_sales' },
+      { id: 'ct_question', field: 'last_user_message', operator: 'equals', value: 'trial_question', sourceHandle: 'handle_question' }
+    ],
+    'handle_followup',   // no match or timeout → follow-up sequence
+    X, spY + 380
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 6: FINAL CTA BRANCHES
+  // ═══════════════════════════════════════════════════════════════
+
+  const ctaY = spY + 500;
+
+  // ── Trial Branch ──
+  const tagTrial = addTag('tag-trial', 'Tag: Trial Clicked', 'Trial_Clicked', XL, ctaY);
+  const sendTrialActivate = textMsg(
+    'send-trial-activate', 'Trial: Activation',
+    'Excellent choice! 🎉\n\nFor the next *30 days*, you\'ll get access to Premium features including:\n\n• Unlimited Clients\n• AI Policy Upload\n• WhatsApp Marketing\n• Customer App\n• Renewal Automation\n• Reports & Analytics\n\n👇 Click below to activate your account.',
+    XL, ctaY + 120
+  );
+  const ctaActivate = ctaBtn(
+    'cta-activate', 'CTA: Activate Trial',
+    '🚀 Activate your FREE 30-Day Trial now!',
+    '🚀 Activate Trial', TRIAL_URL,
+    XL, ctaY + 240
+  );
+
+  // ── Demo Branch ──
+  const tagDemo = addTag('tag-demo', 'Tag: Demo Booked', 'Demo_Booked', XLC, ctaY);
+  const sendDemo = textMsg(
+    'send-demo', 'Demo: Booking',
+    'Perfect! 📅\n\nOur product expert will personally demonstrate how Insurance Desk can help your business.\n\n⏱ Duration: Only *15 Minutes*\n\n👇 Click below to pick a time.',
+    XLC, ctaY + 120
+  );
+  const ctaDemo = ctaBtn(
+    'cta-demo', 'CTA: Schedule Demo',
+    '📅 Schedule your FREE demo session',
+    '📅 Schedule Demo', DEMO_URL,
+    XLC, ctaY + 240
+  );
+
+  // ── Sales Branch ──
+  const tagSales = addTag('tag-sales', 'Tag: Sales Interested', 'Sales_Interested', XRC, ctaY);
+  const sendSalesOptions = btnMsg(
+    'send-sales', 'Sales: Options',
+    'Our Insurance CRM specialists are available to help. 🤝\n\nChoose your preferred option:',
+    [
+      { title: '📞 Call Now', id: 'sales_call' },
+      { title: '💬 WhatsApp Sales', id: 'sales_wa' },
+      { title: '📅 Schedule', id: 'sales_schedule' }
+    ],
+    XRC, ctaY + 120
+  );
+
+  // ── Question Branch ──
+  const sendQuestion = textMsg(
+    'send-question', 'Question: Topics',
+    'No worries! 😊\n\nAsk us anything about:\n\n• 💰 Pricing\n• ⚡ Features\n• 🔄 Migration\n• 🛠 Support\n• 🚀 Setup\n\nOur team is here to help. Just type your question!',
+    XR, ctaY
+  );
+
+  // ── Sales sub-routing (Call/WhatsApp/Schedule) ──
+  const waitSales = waitReply('wait-sales', 'Wait: Sales Choice', XRC, ctaY + 240);
+  const condSales = conditionNode(
+    'cond-sales',
+    'Route: Sales Choice',
+    [
+      { id: 'cs_call', field: 'last_user_message', operator: 'equals', value: 'sales_call', sourceHandle: 'handle_s_call' },
+      { id: 'cs_wa', field: 'last_user_message', operator: 'equals', value: 'sales_wa', sourceHandle: 'handle_s_wa' },
+      { id: 'cs_schedule', field: 'last_user_message', operator: 'equals', value: 'sales_schedule', sourceHandle: 'handle_s_schedule' }
+    ],
+    null,
+    XRC, ctaY + 360
+  );
+  const sendSalesCall = textMsg(
+    'send-sales-call', 'Sales: Call',
+    `📞 Call our specialist now:\n\n${SALES_PHONE}\n\nWe're available Mon-Sat, 10 AM - 7 PM`,
+    XRC - 150, ctaY + 480
+  );
+  const sendSalesWa = textMsg(
+    'send-sales-wa', 'Sales: WhatsApp',
+    'A sales specialist will message you shortly. 💬\n\nPlease share your name and which insurance types you handle.',
+    XRC, ctaY + 480
+  );
+  const sendSalesSchedule = ctaBtn(
+    'send-sales-schedule', 'Sales: Schedule Meeting',
+    '📅 Schedule a call with our specialist',
+    '📅 Schedule Meeting', DEMO_URL,
+    XRC + 150, ctaY + 480
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PHASE 7: FOLLOW-UP SEQUENCE
+  // ═══════════════════════════════════════════════════════════════
+
+  const fuY = ctaY + 620;
+
+  const tagFollowup = addTag('tag-followup', 'Tag: Need Follow-up', 'Need_Followup', X, fuY);
+
+  // ── Reminder 1 (fires after 2min timeout on trial offer) ──
+  const sendR1 = btnMsg(
+    'send-reminder-1', 'Reminder 1 (2 min)',
+    '😊 Just checking...\n\nEven missing one renewal every week can cost more than the price of a CRM.\n\nWould you like to see how Insurance Desk prevents this?',
+    [
+      { title: '👍 Yes', id: 'r1_yes' },
+      { title: '⏰ Later', id: 'r1_later' }
+    ],
+    X, fuY + 120
+  );
+
+  const waitR1 = waitReply('wait-r1', 'Wait: Reminder 1', X, fuY + 240, 12, 'hours');
+
+  const condR1 = conditionNode(
+    'cond-r1', 'Route: Reminder 1',
+    [
+      { id: 'cr1_yes', field: 'last_user_message', operator: 'equals', value: 'r1_yes', sourceHandle: 'handle_r1_yes' }
+    ],
+    'handle_r1_continue',  // "Later" or timeout → next reminder
+    X, fuY + 360
+  );
+
+  // ── Reminder 2 (12 hrs after Reminder 1) ──
+  const sendR2 = btnMsg(
+    'send-reminder-2', 'Reminder 2 (12 hrs)',
+    'Still thinking? 🤔\n\nYour *FREE Trial* is reserved for you.\n\nIt expires soon. ⏳',
+    [
+      { title: '🚀 Start Trial', id: 'r2_trial' },
+      { title: '☎ Talk to Sales', id: 'r2_sales' }
+    ],
+    X, fuY + 480
+  );
+
+  const waitR2 = waitReply('wait-r2', 'Wait: Reminder 2', X, fuY + 600, 24, 'hours');
+
+  const condR2 = conditionNode(
+    'cond-r2', 'Route: Reminder 2',
+    [
+      { id: 'cr2_trial', field: 'last_user_message', operator: 'equals', value: 'r2_trial', sourceHandle: 'handle_r2_trial' },
+      { id: 'cr2_sales', field: 'last_user_message', operator: 'equals', value: 'r2_sales', sourceHandle: 'handle_r2_sales' }
+    ],
+    'handle_r2_continue',
+    X, fuY + 720
+  );
+
+  // ── Reminder 3 (24 hrs after Reminder 2) ──
+  const sendR3 = btnMsg(
+    'send-reminder-3', 'Reminder 3 (24 hrs)',
+    'Many insurance advisors recover their CRM cost simply by saving missed renewals. 💡\n\nDon\'t miss the opportunity. 👇',
+    [
+      { title: '🚀 Start Trial', id: 'r3_trial' },
+      { title: '📅 Book Demo', id: 'r3_demo' }
+    ],
+    X, fuY + 840
+  );
+
+  const waitR3 = waitReply('wait-r3', 'Wait: Reminder 3', X, fuY + 960, 72, 'hours');
+
+  const condR3 = conditionNode(
+    'cond-r3', 'Route: Reminder 3',
+    [
+      { id: 'cr3_trial', field: 'last_user_message', operator: 'equals', value: 'r3_trial', sourceHandle: 'handle_r3_trial' },
+      { id: 'cr3_demo', field: 'last_user_message', operator: 'equals', value: 'r3_demo', sourceHandle: 'handle_r3_demo' }
+    ],
+    'handle_r3_continue',
+    X, fuY + 1080
+  );
+
+  // ── Final Reminder (3 days after Reminder 3) ──
+  const sendFinal = btnMsg(
+    'send-final-reminder', 'Final Reminder (3 days)',
+    'This is our final reminder. ⚠️\n\nYour *FREE Trial* will expire shortly.\n\nWould you like to activate it before it closes?',
+    [
+      { title: '🚀 Start Trial', id: 'final_trial' },
+      { title: '☎ Talk to Sales', id: 'final_sales' }
+    ],
+    X, fuY + 1200
+  );
+
+  const waitFinal = waitReply('wait-final', 'Wait: Final', X, fuY + 1320, 24, 'hours');
+
+  const condFinal = conditionNode(
+    'cond-final', 'Route: Final',
+    [
+      { id: 'cf_trial', field: 'last_user_message', operator: 'equals', value: 'final_trial', sourceHandle: 'handle_f_trial' },
+      { id: 'cf_sales', field: 'last_user_message', operator: 'equals', value: 'final_sales', sourceHandle: 'handle_f_sales' }
+    ],
+    'handle_f_end',
+    X, fuY + 1440
+  );
+
+  const tagNoResponse = addTag('tag-no-response', 'Tag: No Response', 'No_Response', X, fuY + 1560);
+
+
+  // ═══════════════════════════════════════════════════════════════
+  //  COLLECT ALL NODES
+  // ═══════════════════════════════════════════════════════════════
+
+  const nodes = [
+    // Phase 1: Welcome
+    trigger, tagMetaLead, sendWelcome, waitSystem, condSystem,
+    // Phase 2: System branches
+    tagExcel, sendPainExcel,
+    tagDiary, sendPainDiary,
+    tagCrm, sendCrmAsk, waitCrm, sendCrmResp,
+    tagNothing, sendPainNothing,
+    // Phase 3: Volume
+    sendVolume, waitVolume, condVolume,
+    // Phase 4: Volume responses
+    tagV0, sendV0,
+    tagV20, sendV20,
+    tagV50, sendV50,
+    tagV100, sendV100,
+    // Phase 5: Social proof & trial
+    sendSocialProof, sendTrialOffer, waitTrial, condTrial,
+    // Phase 6: CTA branches
+    tagTrial, sendTrialActivate, ctaActivate,
+    tagDemo, sendDemo, ctaDemo,
+    tagSales, sendSalesOptions, waitSales, condSales,
+    sendSalesCall, sendSalesWa, sendSalesSchedule,
+    sendQuestion,
+    // Phase 7: Follow-up
+    tagFollowup,
+    sendR1, waitR1, condR1,
+    sendR2, waitR2, condR2,
+    sendR3, waitR3, condR3,
+    sendFinal, waitFinal, condFinal,
+    tagNoResponse
+  ];
+
+
+  // ═══════════════════════════════════════════════════════════════
+  //  CONNECTIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  const connections = [
+    // ── Phase 1: Welcome chain ──
+    conn('trigger-main', 'tag-meta-lead'),
+    conn('tag-meta-lead', 'send-welcome'),
+    conn('send-welcome', 'wait-system'),
+    conn('wait-system', 'cond-system'),
+
+    // ── Phase 2: System branches from condition ──
+    conn('cond-system', 'tag-excel', 'handle_excel'),
+    conn('cond-system', 'tag-diary', 'handle_diary'),
+    conn('cond-system', 'tag-crm', 'handle_crm'),
+    conn('cond-system', 'tag-nothing', 'handle_nothing'),
+    conn('cond-system', 'send-volume', 'handle_default'),  // fallback → skip to volume
+
+    // Excel → pain → volume
+    conn('tag-excel', 'send-pain-excel'),
+    conn('send-pain-excel', 'send-volume'),
+
+    // Diary → pain → volume
+    conn('tag-diary', 'send-pain-diary'),
+    conn('send-pain-diary', 'send-volume'),
+
+    // CRM → ask → wait → resp → volume
+    conn('tag-crm', 'send-crm-ask'),
+    conn('send-crm-ask', 'wait-crm'),
+    conn('wait-crm', 'send-crm-resp'),
+    conn('send-crm-resp', 'send-volume'),
+
+    // Nothing → pain → volume
+    conn('tag-nothing', 'send-pain-nothing'),
+    conn('send-pain-nothing', 'send-volume'),
+
+    // ── Phase 3: Volume chain ──
+    conn('send-volume', 'wait-volume'),
+    conn('wait-volume', 'cond-volume'),
+
+    // ── Phase 4: Volume branches ──
+    conn('cond-volume', 'tag-vol-0-20', 'handle_v0'),
+    conn('cond-volume', 'tag-vol-20-50', 'handle_v20'),
+    conn('cond-volume', 'tag-vol-50-100', 'handle_v50'),
+    conn('cond-volume', 'tag-vol-100-plus', 'handle_v100'),
+    conn('cond-volume', 'send-social-proof', 'handle_v_default'),  // fallback
+
+    // Volume responses → social proof
+    conn('tag-vol-0-20', 'send-vol-0-20'),
+    conn('send-vol-0-20', 'send-social-proof'),
+
+    conn('tag-vol-20-50', 'send-vol-20-50'),
+    conn('send-vol-20-50', 'send-social-proof'),
+
+    conn('tag-vol-50-100', 'send-vol-50-100'),
+    conn('send-vol-50-100', 'send-social-proof'),
+
+    conn('tag-vol-100-plus', 'send-vol-100-plus'),
+    conn('send-vol-100-plus', 'send-social-proof'),
+
+    // ── Phase 5: Social proof → Trial offer ──
+    conn('send-social-proof', 'send-trial-offer'),
+    conn('send-trial-offer', 'wait-trial'),
+    conn('wait-trial', 'cond-trial'),
+
+    // ── Phase 6: Trial choice branches ──
+    conn('cond-trial', 'tag-trial', 'handle_trial'),
+    conn('cond-trial', 'tag-demo', 'handle_demo'),
+    conn('cond-trial', 'tag-sales', 'handle_sales'),
+    conn('cond-trial', 'send-question', 'handle_question'),
+    conn('cond-trial', 'tag-followup', 'handle_followup'),   // timeout/no-match → follow-up
+
+    // Trial → activate → CTA
+    conn('tag-trial', 'send-trial-activate'),
+    conn('send-trial-activate', 'cta-activate'),
+
+    // Demo → booking → CTA
+    conn('tag-demo', 'send-demo'),
+    conn('send-demo', 'cta-demo'),
+
+    // Sales → options → wait → route
+    conn('tag-sales', 'send-sales'),
+    conn('send-sales', 'wait-sales'),
+    conn('wait-sales', 'cond-sales'),
+    conn('cond-sales', 'send-sales-call', 'handle_s_call'),
+    conn('cond-sales', 'send-sales-wa', 'handle_s_wa'),
+    conn('cond-sales', 'send-sales-schedule', 'handle_s_schedule'),
+
+    // ── Phase 7: Follow-up sequence ──
+    conn('tag-followup', 'send-reminder-1'),
+    conn('send-reminder-1', 'wait-r1'),
+    conn('wait-r1', 'cond-r1'),
+
+    // R1: Yes → trial, else → R2
+    conn('cond-r1', 'tag-trial', 'handle_r1_yes'),
+    conn('cond-r1', 'send-reminder-2', 'handle_r1_continue'),
+
+    conn('send-reminder-2', 'wait-r2'),
+    conn('wait-r2', 'cond-r2'),
+
+    // R2: Trial/Sales, else → R3
+    conn('cond-r2', 'tag-trial', 'handle_r2_trial'),
+    conn('cond-r2', 'tag-sales', 'handle_r2_sales'),
+    conn('cond-r2', 'send-reminder-3', 'handle_r2_continue'),
+
+    conn('send-reminder-3', 'wait-r3'),
+    conn('wait-r3', 'cond-r3'),
+
+    // R3: Trial/Demo, else → Final
+    conn('cond-r3', 'tag-trial', 'handle_r3_trial'),
+    conn('cond-r3', 'tag-demo', 'handle_r3_demo'),
+    conn('cond-r3', 'send-final-reminder', 'handle_r3_continue'),
+
+    conn('send-final-reminder', 'wait-final'),
+    conn('wait-final', 'cond-final'),
+
+    // Final: Trial/Sales, else → tag no response
+    conn('cond-final', 'tag-trial', 'handle_f_trial'),
+    conn('cond-final', 'tag-sales', 'handle_f_sales'),
+    conn('cond-final', 'tag-no-response', 'handle_f_end'),
+  ];
+
+
+  // ═══════════════════════════════════════════════════════════════
+  //  LEAD SCORING RULES
+  // ═══════════════════════════════════════════════════════════════
+
+  const lead_scoring_rules = {
+    'Meta_Lead': 5,
+    'Using_Excel': 3,
+    'Using_Diary': 3,
+    'Using_CRM': 2,
+    'No_System': 4,
+    'Renewals_0_20': 2,
+    'Renewals_20_50': 5,
+    'Renewals_50_100': 8,
+    'Renewals_100Plus': 10,
+    'Trial_Clicked': 15,
+    'Demo_Booked': 12,
+    'Sales_Interested': 10,
+    'Price_Concern': 3,
+    'Need_Followup': 1,
+    'No_Response': -5,
+  };
+
+
+  // ═══════════════════════════════════════════════════════════════
+  //  ASSEMBLE THE FLOW DOCUMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  return {
+    name: 'Insurance Desk — Meta Ad → WhatsApp Funnel',
+    description:
+      'Complete lead qualification flow for Insurance Desk. Converts Meta Ad (CTWA) ' +
+      'clicks into 30-Day Free Trial sign-ups through progressive qualification, ' +
+      'social proof, and automated follow-ups.',
+    user_id: new mongoose.Types.ObjectId(userId),
+    is_active: true,
+    nodes,
+    connections,
+    triggers: [
+      {
+        event_type: 'message_received',
+        conditions: {}   // matches all incoming messages
+      }
+    ],
+    settings: {
+      execution_timeout: 300000,   // 5 min per step
+      max_executions: 10000,
+      error_handling: 'continue',
+      retry_attempts: 3
+    },
+    lead_scoring_rules,
+    statistics: {
+      total_executions: 0,
+      successful_executions: 0,
+      failed_executions: 0,
+      average_execution_time: 0
+    }
+  };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MAIN
+// ═══════════════════════════════════════════════════════════════════════
+
+async function main() {
+  const userId = process.argv[2];
+  if (!userId) {
+    console.error('Usage: node scripts/seed-insurance-desk-flow.js <userId>');
+    process.exit(1);
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    console.error(`Invalid ObjectId: ${userId}`);
+    process.exit(1);
+  }
+
+  const mongoUri = process.env.MONGODB_URI || process.env.DATABASE_URL;
+  if (!mongoUri) {
+    console.error('MONGODB_URI or DATABASE_URL not set in .env');
+    process.exit(1);
+  }
+
+  console.log('─'.repeat(60));
+  console.log(' Insurance Desk — Flow Seed Script');
+  console.log('─'.repeat(60));
+
+  try {
+    await mongoose.connect(mongoUri);
+    console.log('✅ Connected to MongoDB');
+
+    // ── Import models ──
+    const { default: Tag } = await import('../models/tag.model.js');
+    const { default: AutomationFlow } = await import('../models/automation-flow.model.js');
+
+    // ── Step 1: Ensure all tags exist ──
+    console.log('\n📌 Creating tags...');
+    for (const def of TAG_DEFS) {
+      const existing = await Tag.findOne({
+        label: def.label,
+        created_by: userId,
+        deleted_at: null
+      });
+
+      if (!existing) {
+        await Tag.create({
+          label: def.label,
+          color: def.color,
+          created_by: userId
+        });
+        console.log(`  + Created tag: ${def.label}`);
+      } else {
+        console.log(`  ○ Tag exists: ${def.label}`);
+      }
+    }
+
+    // ── Step 2: Check for existing flow ──
+    const existingFlow = await AutomationFlow.findOne({
+      user_id: userId,
+      name: 'Insurance Desk — Meta Ad → WhatsApp Funnel',
+      deleted_at: null
+    });
+
+    if (existingFlow) {
+      console.log(`\n⚠️  Flow already exists (ID: ${existingFlow._id})`);
+      console.log('   To recreate, delete the existing flow first.');
+      await mongoose.disconnect();
+      process.exit(0);
+    }
+
+    // ── Step 3: Build & insert the flow ──
+    console.log('\n🔧 Building automation flow...');
+    const flowData = buildFlow(userId);
+    console.log(`   Nodes: ${flowData.nodes.length}`);
+    console.log(`   Connections: ${flowData.connections.length}`);
+
+    const flow = await AutomationFlow.create(flowData);
+    console.log(`\n✅ Flow created successfully!`);
+    console.log(`   ID: ${flow._id}`);
+    console.log(`   Name: ${flow.name}`);
+
+    // ── Step 4: Clear automation cache ──
+    try {
+      const { default: automationCache } = await import('../utils/automation-cache.js');
+      automationCache.clearUserCache(userId);
+      console.log('   Cache cleared for user');
+    } catch (e) {
+      console.log('   ⚠️ Could not clear cache (non-critical):', e.message);
+    }
+
+    // ── Summary ──
+    console.log('\n' + '─'.repeat(60));
+    console.log(' ✅ DONE!');
+    console.log('─'.repeat(60));
+    console.log(`\n Flow ID:    ${flow._id}`);
+    console.log(` Nodes:      ${flowData.nodes.length}`);
+    console.log(` Connections: ${flowData.connections.length}`);
+    console.log(` Tags:       ${TAG_DEFS.length}`);
+    console.log(` Trigger:    message_received (all messages)`);
+    console.log(`\n Placeholder URLs to update:`);
+    console.log(`   Trial:  ${TRIAL_URL}`);
+    console.log(`   Demo:   ${DEMO_URL}`);
+    console.log(`   Sales:  ${SALES_PHONE}`);
+    console.log(`   Video:  ${DEMO_VIDEO}`);
+    console.log('');
+
+  } catch (error) {
+    console.error('\n❌ Error:', error.message);
+    console.error(error.stack);
+    process.exit(1);
+  } finally {
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
+  }
+}
+
+main();
