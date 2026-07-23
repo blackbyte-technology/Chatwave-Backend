@@ -65,7 +65,7 @@ const TAG_DEFS = [
  */
 function listMsg(id, name, body, header, footer, buttonTitle, sectionTitle, items, x, y) {
   return {
-    id, type: 'send_message',
+    id: `send_message-${id}`, type: 'send_message',
     position: { x, y },
     name,
     description: '',
@@ -90,7 +90,7 @@ function listMsg(id, name, body, header, footer, buttonTitle, sectionTitle, item
  */
 function btnMsg(id, name, body, buttons, x, y) {
   return {
-    id, type: 'send_message',
+    id: `send_message-${id}`, type: 'send_message',
     position: { x, y },
     name,
     description: '',
@@ -108,7 +108,7 @@ function btnMsg(id, name, body, buttons, x, y) {
  */
 function textMsg(id, name, body, x, y) {
   return {
-    id, type: 'send_message',
+    id: `send_message-${id}`, type: 'send_message',
     position: { x, y },
     name,
     description: '',
@@ -124,7 +124,7 @@ function textMsg(id, name, body, x, y) {
  */
 function ctaBtn(id, name, body, buttonText, url, x, y) {
   return {
-    id, type: 'cta_button',
+    id: `cta_button-${id}`, type: 'cta_button',
     position: { x, y },
     name,
     description: '',
@@ -142,7 +142,7 @@ function ctaBtn(id, name, body, buttonText, url, x, y) {
  */
 function addTag(id, name, tagName, x, y) {
   return {
-    id, type: 'add_tag',
+    id: `add_tag-${id}`, type: 'add_tag',
     position: { x, y },
     name,
     description: '',
@@ -160,7 +160,7 @@ function waitReply(id, name, x, y, timeoutValue = null, timeoutUnit = null) {
     params.timeout_unit = timeoutUnit;
   }
   return {
-    id, type: 'wait_for_reply',
+    id: `wait_for_reply-${id}`, type: 'wait_for_reply',
     position: { x, y },
     name,
     description: '',
@@ -173,13 +173,13 @@ function waitReply(id, name, x, y, timeoutValue = null, timeoutUnit = null) {
  */
 function conditionNode(id, name, conditions, noMatchHandle, x, y) {
   return {
-    id, type: 'condition',
+    id: `condition-${id}`, type: 'condition',
     position: { x, y },
     name,
     description: '',
     parameters: {
       conditions,     // [{ id, field, operator, value, sourceHandle }]
-      no_match_handle: noMatchHandle || null
+      no_match_handle: 'no_match'
     }
   };
 }
@@ -188,7 +188,7 @@ function conditionNode(id, name, conditions, noMatchHandle, x, y) {
  * Helper: builds a connection
  */
 let connCounter = 0;
-function conn(source, target, sourceHandle = 'output', targetHandle = 'input') {
+function conn(source, target, sourceHandle = 'src', targetHandle = 'tgt') {
   connCounter++;
   return {
     id: `conn-${connCounter}`,
@@ -665,120 +665,120 @@ function buildFlow(userId) {
 
   const connections = [
     // ── Phase 1: Welcome chain ──
-    conn('trigger-main', 'tag-meta-lead'),
-    conn('tag-meta-lead', 'send-welcome'),
-    conn('send-welcome', 'wait-system'),
-    conn('wait-system', 'cond-system'),
+    conn('trigger-main', 'add_tag-tag-meta-lead'),
+    conn('add_tag-tag-meta-lead', 'send_message-send-welcome'),
+    conn('send_message-send-welcome', 'wait_for_reply-wait-system'),
+    conn('wait_for_reply-wait-system', 'condition-cond-system'),
 
     // ── Phase 2: System branches from condition ──
-    conn('cond-system', 'tag-excel', 'handle_excel'),
-    conn('cond-system', 'tag-diary', 'handle_diary'),
-    conn('cond-system', 'tag-crm', 'handle_crm'),
-    conn('cond-system', 'tag-nothing', 'handle_nothing'),
-    conn('cond-system', 'send-volume', 'handle_default'),  // fallback → skip to volume
+    conn('condition-cond-system', 'add_tag-tag-excel', 'handle_excel'),
+    conn('condition-cond-system', 'add_tag-tag-diary', 'handle_diary'),
+    conn('condition-cond-system', 'add_tag-tag-crm', 'handle_crm'),
+    conn('condition-cond-system', 'add_tag-tag-nothing', 'handle_nothing'),
+    conn('condition-cond-system', 'send_message-send-volume', 'no_match'),  // fallback → skip to volume
 
     // Excel → pain → volume
-    conn('tag-excel', 'send-pain-excel'),
-    conn('send-pain-excel', 'send-volume'),
+    conn('add_tag-tag-excel', 'send_message-send-pain-excel'),
+    conn('send_message-send-pain-excel', 'send_message-send-volume'),
 
     // Diary → pain → volume
-    conn('tag-diary', 'send-pain-diary'),
-    conn('send-pain-diary', 'send-volume'),
+    conn('add_tag-tag-diary', 'send_message-send-pain-diary'),
+    conn('send_message-send-pain-diary', 'send_message-send-volume'),
 
     // CRM → ask → wait → resp → volume
-    conn('tag-crm', 'send-crm-ask'),
-    conn('send-crm-ask', 'wait-crm'),
-    conn('wait-crm', 'send-crm-resp'),
-    conn('send-crm-resp', 'send-volume'),
+    conn('add_tag-tag-crm', 'send_message-send-crm-ask'),
+    conn('send_message-send-crm-ask', 'wait_for_reply-wait-crm'),
+    conn('wait_for_reply-wait-crm', 'send_message-send-crm-resp'),
+    conn('send_message-send-crm-resp', 'send_message-send-volume'),
 
     // Nothing → pain → volume
-    conn('tag-nothing', 'send-pain-nothing'),
-    conn('send-pain-nothing', 'send-volume'),
+    conn('add_tag-tag-nothing', 'send_message-send-pain-nothing'),
+    conn('send_message-send-pain-nothing', 'send_message-send-volume'),
 
     // ── Phase 3: Volume chain ──
-    conn('send-volume', 'wait-volume'),
-    conn('wait-volume', 'cond-volume'),
+    conn('send_message-send-volume', 'wait_for_reply-wait-volume'),
+    conn('wait_for_reply-wait-volume', 'condition-cond-volume'),
 
     // ── Phase 4: Volume branches ──
-    conn('cond-volume', 'tag-vol-0-20', 'handle_v0'),
-    conn('cond-volume', 'tag-vol-20-50', 'handle_v20'),
-    conn('cond-volume', 'tag-vol-50-100', 'handle_v50'),
-    conn('cond-volume', 'tag-vol-100-plus', 'handle_v100'),
-    conn('cond-volume', 'send-social-proof', 'handle_v_default'),  // fallback
+    conn('condition-cond-volume', 'add_tag-tag-vol-0-20', 'handle_v0'),
+    conn('condition-cond-volume', 'add_tag-tag-vol-20-50', 'handle_v20'),
+    conn('condition-cond-volume', 'add_tag-tag-vol-50-100', 'handle_v50'),
+    conn('condition-cond-volume', 'add_tag-tag-vol-100-plus', 'handle_v100'),
+    conn('condition-cond-volume', 'send_message-send-social-proof', 'no_match'),  // fallback
 
     // Volume responses → social proof
-    conn('tag-vol-0-20', 'send-vol-0-20'),
-    conn('send-vol-0-20', 'send-social-proof'),
+    conn('add_tag-tag-vol-0-20', 'send_message-send-vol-0-20'),
+    conn('send_message-send-vol-0-20', 'send_message-send-social-proof'),
 
-    conn('tag-vol-20-50', 'send-vol-20-50'),
-    conn('send-vol-20-50', 'send-social-proof'),
+    conn('add_tag-tag-vol-20-50', 'send_message-send-vol-20-50'),
+    conn('send_message-send-vol-20-50', 'send_message-send-social-proof'),
 
-    conn('tag-vol-50-100', 'send-vol-50-100'),
-    conn('send-vol-50-100', 'send-social-proof'),
+    conn('add_tag-tag-vol-50-100', 'send_message-send-vol-50-100'),
+    conn('send_message-send-vol-50-100', 'send_message-send-social-proof'),
 
-    conn('tag-vol-100-plus', 'send-vol-100-plus'),
-    conn('send-vol-100-plus', 'send-social-proof'),
+    conn('add_tag-tag-vol-100-plus', 'send_message-send-vol-100-plus'),
+    conn('send_message-send-vol-100-plus', 'send_message-send-social-proof'),
 
     // ── Phase 5: Social proof → Trial offer ──
-    conn('send-social-proof', 'send-trial-offer'),
-    conn('send-trial-offer', 'wait-trial'),
-    conn('wait-trial', 'cond-trial'),
+    conn('send_message-send-social-proof', 'send_message-send-trial-offer'),
+    conn('send_message-send-trial-offer', 'wait_for_reply-wait-trial'),
+    conn('wait_for_reply-wait-trial', 'condition-cond-trial'),
 
     // ── Phase 6: Trial choice branches ──
-    conn('cond-trial', 'tag-trial', 'handle_trial'),
-    conn('cond-trial', 'tag-demo', 'handle_demo'),
-    conn('cond-trial', 'tag-sales', 'handle_sales'),
-    conn('cond-trial', 'send-question', 'handle_question'),
-    conn('cond-trial', 'tag-followup', 'handle_followup'),   // timeout/no-match → follow-up
+    conn('condition-cond-trial', 'add_tag-tag-trial', 'handle_trial'),
+    conn('condition-cond-trial', 'add_tag-tag-demo', 'handle_demo'),
+    conn('condition-cond-trial', 'add_tag-tag-sales', 'handle_sales'),
+    conn('condition-cond-trial', 'send_message-send-question', 'handle_question'),
+    conn('condition-cond-trial', 'add_tag-tag-followup', 'no_match'),   // timeout/no-match → follow-up
 
     // Trial → activate → CTA
-    conn('tag-trial', 'send-trial-activate'),
-    conn('send-trial-activate', 'cta-activate'),
+    conn('add_tag-tag-trial', 'send_message-send-trial-activate'),
+    conn('send_message-send-trial-activate', 'cta_button-cta-activate'),
 
     // Demo → booking → CTA
-    conn('tag-demo', 'send-demo'),
-    conn('send-demo', 'cta-demo'),
+    conn('add_tag-tag-demo', 'send_message-send-demo'),
+    conn('send_message-send-demo', 'cta_button-cta-demo'),
 
     // Sales → options → wait → route
-    conn('tag-sales', 'send-sales'),
-    conn('send-sales', 'wait-sales'),
-    conn('wait-sales', 'cond-sales'),
-    conn('cond-sales', 'send-sales-call', 'handle_s_call'),
-    conn('cond-sales', 'send-sales-wa', 'handle_s_wa'),
-    conn('cond-sales', 'send-sales-schedule', 'handle_s_schedule'),
+    conn('add_tag-tag-sales', 'send_message-send-sales'),
+    conn('send_message-send-sales', 'wait_for_reply-wait-sales'),
+    conn('wait_for_reply-wait-sales', 'condition-cond-sales'),
+    conn('condition-cond-sales', 'send_message-send-sales-call', 'handle_s_call'),
+    conn('condition-cond-sales', 'send_message-send-sales-wa', 'handle_s_wa'),
+    conn('condition-cond-sales', 'send_message-send-sales-schedule', 'no_match'),
 
     // ── Phase 7: Follow-up sequence ──
-    conn('tag-followup', 'send-reminder-1'),
-    conn('send-reminder-1', 'wait-r1'),
-    conn('wait-r1', 'cond-r1'),
+    conn('add_tag-tag-followup', 'send_message-send-reminder-1'),
+    conn('send_message-send-reminder-1', 'wait_for_reply-wait-r1'),
+    conn('wait_for_reply-wait-r1', 'condition-cond-r1'),
 
     // R1: Yes → trial, else → R2
-    conn('cond-r1', 'tag-trial', 'handle_r1_yes'),
-    conn('cond-r1', 'send-reminder-2', 'handle_r1_continue'),
+    conn('condition-cond-r1', 'add_tag-tag-trial', 'handle_r1_yes'),
+    conn('condition-cond-r1', 'send_message-send-reminder-2', 'no_match'),
 
-    conn('send-reminder-2', 'wait-r2'),
-    conn('wait-r2', 'cond-r2'),
+    conn('send_message-send-reminder-2', 'wait_for_reply-wait-r2'),
+    conn('wait_for_reply-wait-r2', 'condition-cond-r2'),
 
     // R2: Trial/Sales, else → R3
-    conn('cond-r2', 'tag-trial', 'handle_r2_trial'),
-    conn('cond-r2', 'tag-sales', 'handle_r2_sales'),
-    conn('cond-r2', 'send-reminder-3', 'handle_r2_continue'),
+    conn('condition-cond-r2', 'add_tag-tag-trial', 'handle_r2_trial'),
+    conn('condition-cond-r2', 'add_tag-tag-sales', 'handle_r2_sales'),
+    conn('condition-cond-r2', 'send_message-send-reminder-3', 'no_match'),
 
-    conn('send-reminder-3', 'wait-r3'),
-    conn('wait-r3', 'cond-r3'),
+    conn('send_message-send-reminder-3', 'wait_for_reply-wait-r3'),
+    conn('wait_for_reply-wait-r3', 'condition-cond-r3'),
 
     // R3: Trial/Demo, else → Final
-    conn('cond-r3', 'tag-trial', 'handle_r3_trial'),
-    conn('cond-r3', 'tag-demo', 'handle_r3_demo'),
-    conn('cond-r3', 'send-final-reminder', 'handle_r3_continue'),
+    conn('condition-cond-r3', 'add_tag-tag-trial', 'handle_r3_trial'),
+    conn('condition-cond-r3', 'add_tag-tag-demo', 'handle_r3_demo'),
+    conn('condition-cond-r3', 'send_message-send-final-reminder', 'no_match'),
 
-    conn('send-final-reminder', 'wait-final'),
-    conn('wait-final', 'cond-final'),
+    conn('send_message-send-final-reminder', 'wait_for_reply-wait-final'),
+    conn('wait_for_reply-wait-final', 'condition-cond-final'),
 
     // Final: Trial/Sales, else → tag no response
-    conn('cond-final', 'tag-trial', 'handle_f_trial'),
-    conn('cond-final', 'tag-sales', 'handle_f_sales'),
-    conn('cond-final', 'tag-no-response', 'handle_f_end'),
+    conn('condition-cond-final', 'add_tag-tag-trial', 'handle_f_trial'),
+    conn('condition-cond-final', 'add_tag-tag-sales', 'handle_f_sales'),
+    conn('condition-cond-final', 'add_tag-tag-no-response', 'no_match'),
   ];
 
 
